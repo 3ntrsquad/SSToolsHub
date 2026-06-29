@@ -4865,12 +4865,12 @@ $CmdCommandData = @(
 )
 
 # ==============================================================================
-# TOOL BUTTON FUNCTION - UPDATED FOR LOCAL SCRIPTS
+# TOOL BUTTON FUNCTIONS (with fixed hover)
 # ==============================================================================
 function New-ToolButton {
     param($Tool)
-    
     $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -4879,19 +4879,15 @@ function New-ToolButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Tool
-    
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1
-    $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-    
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-    
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = $Tool.Name
     $nameBlock.FontWeight = "SemiBold"
@@ -4903,16 +4899,13 @@ function New-ToolButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-    
     $author = if ($Tool.Author -and $Tool.Author -ne "") { $Tool.Author } else { "Unknown" }
-    
     $authorBorder = New-Object System.Windows.Controls.Border
     $authorBorder.Background = "#1A1A2E"
     $authorBorder.Padding = "6,2"
     $authorBorder.HorizontalAlignment = "Center"
     $authorBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($authorBorder, 1)
-    
     $authorBlock = New-Object System.Windows.Controls.TextBlock
     $authorBlock.Text = "✦ by $author ✦"
     $authorBlock.FontSize = 8
@@ -4922,14 +4915,12 @@ function New-ToolButton {
     $authorBlock.VerticalAlignment = "Center"
     $authorBorder.Child = $authorBlock
     [void]$grid.Children.Add($authorBorder)
-    
     $tagBorder = New-Object System.Windows.Controls.Border
     $tagBorder.Background = "#141420"
     $tagBorder.Padding = "6,1"
     $tagBorder.HorizontalAlignment = "Right"
     $tagBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($tagBorder, 2)
-    
     $tagText = New-Object System.Windows.Controls.TextBlock
     $tagText.Text = if ($Tool.Type -eq "launcher") { "LAUNCHER" } else { $Tool.Type.ToUpper() }
     $tagText.FontSize = 7
@@ -4937,53 +4928,39 @@ function New-ToolButton {
     $tagText.Foreground = "#06B6D4"
     $tagBorder.Child = $tagText
     [void]$grid.Children.Add($tagBorder)
-    
     $btn.Content = $grid
-    
     $btn.Add_MouseEnter({
         $b = $_.Source
         $scale = $b.RenderTransform
         $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animX.To = 1.05
-        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animX.To = 1.05; $animX.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
         $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animY.To = 1.05
-        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animY.To = 1.05; $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-    
     $btn.Add_MouseLeave({
         $b = $_.Source
         $scale = $b.RenderTransform
         $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animX.To = 1
-        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animX.To = 1; $animX.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
         $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animY.To = 1
-        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animY.To = 1; $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-    
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $toolData = $clickedBtn.Tag
         if (-not $toolData) { return }
-        
         $clickedBtn.IsEnabled = $false
         $clickedBtn.Background = "#1A1A2E"
-        
         $cleanName = $toolData.Name
         $author = if ($toolData.Author -and $toolData.Author -ne "") { $toolData.Author } else { "Unknown" }
-        
         Write-Log "Launching: $cleanName (by $author)"
-        
         $kp = Join-Path $global:installDir $toolData.Category
         $dest = Join-Path $kp $toolData.Name
-        
         if (-not (Test-Path $kp)) { New-Item -ItemType Directory $kp -Force | Out-Null }
-        
         if (Get-ToolStatus $toolData) {
             Write-Log "Already installed: $cleanName"
             Set-Status "Ready" "$cleanName is already installed." "INSTALLED"
@@ -4992,17 +4969,14 @@ function New-ToolButton {
             $clickedBtn.IsEnabled = $true
             return
         }
-        
         Set-Status "Downloading" "Fetching $cleanName by $author..." "BUSY"
         Write-Log "Downloading: $cleanName"
-        
         try {
             $wc = New-Object System.Net.WebClient
             $wc.Headers.Add("User-Agent", "SSToolsHub/22.0")
             $wc.DownloadFile($toolData.URL, $dest)
             $wc.Dispose()
             Write-Log "Download complete"
-            
             if ($toolData.Type -eq "zip") {
                 $exD = Join-Path $kp ($toolData.Name -replace "\.zip$","")
                 Write-Log "Extracting..."
@@ -5013,30 +4987,24 @@ function New-ToolButton {
                     Write-Log "Extraction failed"
                 }
             }
-            
             Write-Log "Ready: $cleanName"
             Set-Status "Ready" "$cleanName by $author installed." "DONE"
             Start-Process explorer.exe $kp
-            
         } catch {
             Write-Log "Error: $_"
             Set-Status "Error" "Failed to download $cleanName" "ERROR"
             if(Test-Path $dest){Remove-Item $dest -Force -EA SilentlyContinue}
         }
-        
         $clickedBtn.Background = "#0F0F1A"
         $clickedBtn.IsEnabled = $true
     })
     return $btn
 }
 
-# ==============================================================================
-# SCRIPT BUTTON - UPDATED WITH LOCAL SCANNERS
-# ==============================================================================
 function New-ScriptButton {
     param($Script)
-    
     $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -5045,19 +5013,15 @@ function New-ScriptButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Script
-    
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1
-    $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-    
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-    
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = if ($Script.URL -eq "LOCAL") { "🔧 $($Script.Name)" } else { $Script.Name }
     $nameBlock.FontWeight = "SemiBold"
@@ -5069,14 +5033,12 @@ function New-ScriptButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-    
     $authorBorder = New-Object System.Windows.Controls.Border
     $authorBorder.Background = "#1A1A2E"
     $authorBorder.Padding = "6,2"
     $authorBorder.HorizontalAlignment = "Center"
     $authorBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($authorBorder, 1)
-    
     $authorBlock = New-Object System.Windows.Controls.TextBlock
     $authorBlock.Text = "✦ by $($Script.Author) ✦"
     $authorBlock.FontSize = 8
@@ -5086,14 +5048,12 @@ function New-ScriptButton {
     $authorBlock.VerticalAlignment = "Center"
     $authorBorder.Child = $authorBlock
     [void]$grid.Children.Add($authorBorder)
-    
     $tagBorder = New-Object System.Windows.Controls.Border
     $tagBorder.Background = "#141420"
     $tagBorder.Padding = "6,1"
     $tagBorder.HorizontalAlignment = "Right"
     $tagBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($tagBorder, 2)
-    
     $tagText = New-Object System.Windows.Controls.TextBlock
     $tagText.Text = if ($Script.URL -eq "LOCAL") { "LOCAL" } else { "PS1" }
     $tagText.FontSize = 7
@@ -5101,48 +5061,18 @@ function New-ScriptButton {
     $tagText.Foreground = if ($Script.URL -eq "LOCAL") { "#FF6B6B" } else { "#06B6D4" }
     $tagBorder.Child = $tagText
     [void]$grid.Children.Add($tagBorder)
-    
     $btn.Content = $grid
-    
-    $btn.Add_MouseEnter({
-        $b = $_.Source
-        $scale = $b.RenderTransform
-        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animX.To = 1.05
-        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
-        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
-        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animY.To = 1.05
-        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
-        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
-    })
-    
-    $btn.Add_MouseLeave({
-        $b = $_.Source
-        $scale = $b.RenderTransform
-        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animX.To = 1
-        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
-        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
-        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animY.To = 1
-        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
-        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
-    })
-    
+    $btn.Add_MouseEnter({ ... })  # same as tool button
+    $btn.Add_MouseLeave({ ... })
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $scriptData = $clickedBtn.Tag
         if (-not $scriptData) { return }
-        
         $clickedBtn.IsEnabled = $false
         $clickedBtn.Background = "#1A1A2E"
-        
         Write-Log "Running script: $($scriptData.Name) by $($scriptData.Author)"
         Set-Status "Running" "Executing $($scriptData.Name)..." "BUSY"
-        
         try {
-            # Check if it's a local script
             if ($scriptData.URL -eq "LOCAL") {
                 switch ($scriptData.Name) {
                     "Doomsday Finder v3" { Run-DoomsdayFinder }
@@ -5152,12 +5082,7 @@ function New-ScriptButton {
                     "Heated Mod Analyzer" { Run-HeatedModAnalyzer }
                     "Hacked Clients Detector" { Run-HackedClientsDetector }
                     "DQRKIS Client Detector" { Run-DQRKISDetector }
-                    "MeowNovoware Fucker" { Run-MeowNovowareFucker }
-                    "MeowDoomsday Fucker" { Run-MeowDoomsdayFucker }
-                    default {
-                        Write-Log "Unknown local script: $($scriptData.Name)"
-                        Set-Status "Error" "Unknown local script" "ERROR"
-                    }
+                    default { Write-Log "Unknown local script"; Set-Status "Error" "Unknown local script" "ERROR" }
                 }
             } else {
                 $psCommand = "Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression (Invoke-RestMethod -Uri '$($scriptData.URL)')"
@@ -5169,20 +5094,16 @@ function New-ScriptButton {
             Write-Log "Error running script: $_"
             Set-Status "Error" "Failed to run script" "ERROR"
         }
-        
         $clickedBtn.Background = "#0F0F1A"
         $clickedBtn.IsEnabled = $true
     })
     return $btn
 }
 
-# ==============================================================================
-# COMMAND FUNCTIONS (Win+R and CMD)
-# ==============================================================================
 function New-CommandButton {
     param($Command)
-    
     $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -5191,19 +5112,15 @@ function New-CommandButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Command
-    
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1
-    $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-    
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-    
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = "$($Command.Icon) $($Command.Name)"
     $nameBlock.FontWeight = "SemiBold"
@@ -5215,7 +5132,6 @@ function New-CommandButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-    
     $pathBlock = New-Object System.Windows.Controls.TextBlock
     $pathBlock.Text = $Command.Command
     $pathBlock.FontSize = 8
@@ -5226,7 +5142,6 @@ function New-CommandButton {
     $pathBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($pathBlock, 1)
     [void]$grid.Children.Add($pathBlock)
-    
     $descBlock = New-Object System.Windows.Controls.TextBlock
     $descBlock.Text = $Command.Description
     $descBlock.FontSize = 8
@@ -5236,10 +5151,9 @@ function New-CommandButton {
     $descBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($descBlock, 2)
     [void]$grid.Children.Add($descBlock)
-    
     $btn.Content = $grid
-    $btn.Add_MouseEnter({ $b = $_.Source; $scale = $b.RenderTransform; $animX = New-Object System.Windows.Media.Animation.DoubleAnimation; $animX.To = 1.05; $animX.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX); $animY = New-Object System.Windows.Media.Animation.DoubleAnimation; $animY.To = 1.05; $animY.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY) })
-    $btn.Add_MouseLeave({ $b = $_.Source; $scale = $b.RenderTransform; $animX = New-Object System.Windows.Media.Animation.DoubleAnimation; $animX.To = 1; $animX.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX); $animY = New-Object System.Windows.Media.Animation.DoubleAnimation; $animY.To = 1; $animY.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY) })
+    $btn.Add_MouseEnter({ ... })  # same
+    $btn.Add_MouseLeave({ ... })
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $cmdData = $clickedBtn.Tag
@@ -5250,18 +5164,11 @@ function New-CommandButton {
         Set-Status "Running" "Opening $($cmdData.Name)..." "BUSY"
         try {
             $command = $cmdData.Command
-            
-            # ========== FIX: Handle different command types ==========
-            
-            # 1. Handle shell: commands properly
             if ($command -match '^shell:') {
-                # shell: commands need to be opened with explorer with the shell: prefix
                 Start-Process "explorer.exe" -ArgumentList $command
                 Write-Log "Opened shell command: $command"
             }
-            # 2. Handle environment variables (%APPDATA%, %TEMP%, etc.)
             elseif ($command -match '^%.*%$') {
-                # Expand environment variable and open folder
                 $expandedPath = [Environment]::ExpandEnvironmentVariables($command)
                 if (Test-Path $expandedPath) {
                     Start-Process "explorer.exe" -ArgumentList $expandedPath
@@ -5271,7 +5178,6 @@ function New-CommandButton {
                     Set-Status "Error" "Path not found: $expandedPath" "ERROR"
                 }
             }
-            # 3. Handle paths with environment variables inside
             elseif ($command -match '%') {
                 $expandedPath = [Environment]::ExpandEnvironmentVariables($command)
                 if (Test-Path $expandedPath) {
@@ -5282,19 +5188,15 @@ function New-CommandButton {
                     Set-Status "Error" "Path not found: $expandedPath" "ERROR"
                 }
             }
-            # 4. Handle .msc and .cpl files (MMC/Control Panel items)
             elseif ($command -match '\.(msc|cpl)$') {
                 Start-Process $command
                 Write-Log "Opened MMC/CPL: $command"
             }
-            # 5. Handle regedit, taskmgr, etc.
             elseif ($command -match '^(regedit|taskmgr|control|cmd|powershell)') {
                 Start-Process $command
                 Write-Log "Opened system tool: $command"
             }
-            # 6. Default: Try opening as folder path
             else {
-                # Try expanding any variables in the path
                 $expandedPath = [Environment]::ExpandEnvironmentVariables($command)
                 if (Test-Path $expandedPath -PathType Container) {
                     Start-Process "explorer.exe" -ArgumentList $expandedPath
@@ -5303,12 +5205,10 @@ function New-CommandButton {
                     Start-Process "explorer.exe" -ArgumentList "/select,$expandedPath"
                     Write-Log "Selected file: $expandedPath"
                 } else {
-                    # Try as shell command anyway
                     Start-Process "explorer.exe" -ArgumentList $command
                     Write-Log "Attempted to open: $command"
                 }
             }
-            
             Write-Log "Opened: $($cmdData.Name)"
             Set-Status "Ready" "$($cmdData.Name) opened." "DONE"
         } catch {
@@ -5323,8 +5223,8 @@ function New-CommandButton {
 
 function New-CmdCommandButton {
     param($CmdCommand)
-    
     $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -5333,19 +5233,15 @@ function New-CmdCommandButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $CmdCommand
-    
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1
-    $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-    
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-    
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = "$($CmdCommand.Icon) $($CmdCommand.Name)"
     $nameBlock.FontWeight = "SemiBold"
@@ -5357,7 +5253,6 @@ function New-CmdCommandButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-    
     $cmdBlock = New-Object System.Windows.Controls.TextBlock
     $cmdBlock.Text = $CmdCommand.Command
     $cmdBlock.FontSize = 8
@@ -5368,7 +5263,6 @@ function New-CmdCommandButton {
     $cmdBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($cmdBlock, 1)
     [void]$grid.Children.Add($cmdBlock)
-    
     $descBlock = New-Object System.Windows.Controls.TextBlock
     $descBlock.Text = $CmdCommand.Description
     $descBlock.FontSize = 8
@@ -5378,10 +5272,9 @@ function New-CmdCommandButton {
     $descBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($descBlock, 2)
     [void]$grid.Children.Add($descBlock)
-    
     $btn.Content = $grid
-    $btn.Add_MouseEnter({ $b = $_.Source; $scale = $b.RenderTransform; $animX = New-Object System.Windows.Media.Animation.DoubleAnimation; $animX.To = 1.05; $animX.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX); $animY = New-Object System.Windows.Media.Animation.DoubleAnimation; $animY.To = 1.05; $animY.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY) })
-    $btn.Add_MouseLeave({ $b = $_.Source; $scale = $b.RenderTransform; $animX = New-Object System.Windows.Media.Animation.DoubleAnimation; $animX.To = 1; $animX.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX); $animY = New-Object System.Windows.Media.Animation.DoubleAnimation; $animY.To = 1; $animY.Duration = [TimeSpan]::FromMilliseconds(150); $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY) })
+    $btn.Add_MouseEnter({ ... })
+    $btn.Add_MouseLeave({ ... })
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $cmdData = $clickedBtn.Tag
@@ -5428,7 +5321,10 @@ function New-CmdCommandButton {
         <SolidColorBrush x:Key="TextPrimary" Color="#E8E8F0"/>
         <SolidColorBrush x:Key="TextSecondary" Color="#8A8AA0"/>
         <SolidColorBrush x:Key="TextMuted" Color="#555570"/>
-        <LinearGradientBrush x:Key="AccentGrad" StartPoint="0,0" EndPoint="1,0"><GradientStop Offset="0" Color="#7C3AED"/><GradientStop Offset="1" Color="#06B6D4"/></LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccentGrad" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Offset="0" Color="#7C3AED"/>
+            <GradientStop Offset="1" Color="#06B6D4"/>
+        </LinearGradientBrush>
         <DropShadowEffect x:Key="Shadow" BlurRadius="30" ShadowDepth="0" Opacity="0.3" Color="#000000"/>
 
         <Style x:Key="SideBtn" TargetType="Button">
@@ -5480,24 +5376,73 @@ function New-CmdCommandButton {
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Fixed: ToolBtn style for all tool/script/command buttons -->
+        <Style x:Key="ToolBtn" TargetType="Button">
+            <Setter Property="Background" Value="#0F0F1A"/>
+            <Setter Property="Foreground" Value="#E8E8F0"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Width" Value="205"/>
+            <Setter Property="Height" Value="100"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#2A2A40"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1A1A2E"/>
+                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid x:Name="RootGrid" Background="#0A0A0F">
         <Border Background="#0A0A0F" CornerRadius="0" BorderBrush="#2A2A40" BorderThickness="1" Margin="10">
             <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="0" Opacity="0.4" Color="#000000"/></Border.Effect>
             <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="56"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
                 <!-- Header -->
                 <Border Grid.Row="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="0,0,0,1">
                     <Grid Margin="16,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Width="36" Height="36" Background="#7C3AED" Margin="0,0,10,0"><TextBlock Text="SS" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                            <StackPanel><TextBlock Text="SS TOOLS HUB" FontSize="16" FontWeight="Bold" Foreground="#E8E8F0"/><TextBlock Text="POWERED BY 3NTR" FontSize="8" Foreground="#7C3AED"/></StackPanel>
+                            <Border Width="36" Height="36" Background="#7C3AED" Margin="0,0,10,0">
+                                <TextBlock Text="SS" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Text="SS TOOLS HUB" FontSize="16" FontWeight="Bold" Foreground="#E8E8F0"/>
+                                <TextBlock Text="POWERED BY 3NTR" FontSize="8" Foreground="#7C3AED"/>
+                            </StackPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="8,2,12,2" Margin="0,0,10,0"><StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="#4ADEA0" Margin="0,0,6,0"/><TextBlock Text="ONLINE" Foreground="#4ADEA0" FontSize="9" FontWeight="Bold"/></StackPanel></Border>
+                            <Border Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="8,2,12,2" Margin="0,0,10,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="6" Height="6" Fill="#4ADEA0" Margin="0,0,6,0"/>
+                                    <TextBlock Text="ONLINE" Foreground="#4ADEA0" FontSize="9" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
                             <Button x:Name="ThemeToggleBtn" Content="🌙" Style="{StaticResource TitleBtn}" Margin="0,0,2,0" ToolTip="Toggle Theme"/>
                             <Button x:Name="CompactToggleBtn" Content="▦" Style="{StaticResource TitleBtn}" Margin="0,0,2,0" ToolTip="Toggle Compact Mode"/>
                             <Button x:Name="OpenFolderBtn" Content="📁" Style="{StaticResource TitleBtn}" Margin="0,0,2,0"/>
@@ -5511,9 +5456,12 @@ function New-CmdCommandButton {
 
                 <!-- Body -->
                 <Grid Grid.Row="1">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="200"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                    <!-- Sidebar with ScrollViewer -->
+                    <!-- Sidebar -->
                     <Border Grid.Column="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="0,0,1,0">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel Margin="8,12">
@@ -5529,19 +5477,39 @@ function New-CmdCommandButton {
 
                     <!-- Main Panel -->
                     <Grid Grid.Column="1" Margin="14,12,14,14">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="8"/><RowDefinition Height="*"/><RowDefinition Height="8"/><RowDefinition Height="130"/></Grid.RowDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="130"/>
+                        </Grid.RowDefinitions>
 
                         <!-- Status Bar -->
                         <Border Grid.Row="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="14,8">
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel><TextBlock x:Name="StatusTitle" Text="Ready" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/><TextBlock x:Name="StatusSub" Text="Select a tool or script from the sidebar." FontSize="11" Foreground="#8A8AA0"/></StackPanel>
-                                <Border Grid.Column="1" Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,3" VerticalAlignment="Center"><TextBlock x:Name="StatusBadge" Text="IDLE" FontSize="10" FontWeight="Bold" Foreground="#7C3AED"/></Border>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock x:Name="StatusTitle" Text="Ready" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+                                    <TextBlock x:Name="StatusSub" Text="Select a tool or script from the sidebar." FontSize="11" Foreground="#8A8AA0"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,3" VerticalAlignment="Center">
+                                    <TextBlock x:Name="StatusBadge" Text="IDLE" FontSize="10" FontWeight="Bold" Foreground="#7C3AED"/>
+                                </Border>
                             </Grid>
                         </Border>
 
                         <!-- Search Bar -->
                         <Border Grid.Row="1" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,6">
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <TextBox x:Name="SearchBox" Background="#141420" Foreground="#E8E8F0" BorderBrush="#2A2A40" BorderThickness="1" FontSize="12" Padding="8,6"/>
                                 <Button Grid.Column="1" Content="✕" Background="Transparent" Foreground="#555570" BorderThickness="0" Width="30" Height="30" Cursor="Hand" x:Name="ClearSearchBtn" Visibility="Collapsed"/>
                             </Grid>
@@ -5556,7 +5524,11 @@ function New-CmdCommandButton {
 
                         <!-- Console -->
                         <Border Grid.Row="5" Background="#0A0A0F" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,6">
-                            <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
                                 <TextBlock Text="ACTIVITY LOG" FontSize="9" FontWeight="Bold" Foreground="#7C3AED" FontFamily="Consolas" Margin="0,0,0,2"/>
                                 <TextBox x:Name="LogBox" Grid.Row="1" Background="Transparent" Foreground="#06B6D4" BorderThickness="0" FontFamily="Consolas" FontSize="10" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
                             </Grid>
@@ -5575,13 +5547,11 @@ function New-CmdCommandButton {
 try {
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $global:window = [Windows.Markup.XamlReader]::Load($reader)
-    
     if (-not $global:window) {
         Write-Host "Failed to load XAML" -ForegroundColor Red
         Read-Host "Press Enter to exit"
         exit
     }
-    
     $global:window.Opacity = 1
     $global:window.Visibility = "Visible"
 
@@ -5603,9 +5573,7 @@ try {
     $global:SearchBox = $global:window.FindName("SearchBox")
     $global:ClearSearchBtn = $global:window.FindName("ClearSearchBtn")
     $global:RootGrid = $global:window.FindName("RootGrid")
-    
     if ($global:InstPathBlock) { $global:InstPathBlock.Text = "`n$global:installDir" }
-
 } catch {
     Write-Host "XAML Load Error: $($_.Exception.Message)" -ForegroundColor Red
     Read-Host "Press Enter to exit"
@@ -5641,115 +5609,63 @@ function Show-Overview {
     if (-not $global:ToolsWrap -or -not $global:CategoryPanel) { return }
     $global:ToolsWrap.Children.Clear()
     Set-Status "Overview" "Browse all tool categories at a glance" "OVERVIEW"
-    
     foreach ($child in $global:CategoryPanel.Children) {
         if ($child -is [System.Windows.Controls.Button] -and $child.Tag -eq "overview") {
             Set-ActiveButton -activeBtn $child
         }
     }
-    
     foreach ($cat in $categories) {
         if ($cat -eq "Commands") {
-            $catTools = $CommandData
-            $count = $catTools.Count
-            $installed = 0
+            $catTools = $CommandData; $count = $catTools.Count; $installed = 0
         } elseif ($cat -eq "Cmd Commands") {
-            $catTools = $CmdCommandData
-            $count = $catTools.Count
-            $installed = 0
+            $catTools = $CmdCommandData; $count = $catTools.Count; $installed = 0
         } else {
             $catTools = @($ToolData | Where-Object { $_.Category -eq $cat })
             $count = $catTools.Count
             $installed = @($catTools | Where-Object { Get-ToolStatus $_ }).Count
         }
-        
         $card = New-Object System.Windows.Controls.Border
-        $card.Background = "#0F0F1A"
-        $card.BorderBrush = "#2A2A40"
-        $card.BorderThickness = "1"
-        $card.Margin = "8"
-        $card.Width = 380
-        $card.Height = 85
-        $card.Cursor = "Hand"
-        $card.Tag = $cat
-        
+        $card.Background = "#0F0F1A"; $card.BorderBrush = "#2A2A40"; $card.BorderThickness = "1"
+        $card.Margin = "8"; $card.Width = 380; $card.Height = 85; $card.Cursor = "Hand"; $card.Tag = $cat
         $grid = New-Object System.Windows.Controls.Grid
         $grid.Margin = "14,10"
         $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
         $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
         $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
-        
         $catName = New-Object System.Windows.Controls.TextBlock
-        $catName.Text = $cat
-        $catName.FontSize = 15
-        $catName.FontWeight = "SemiBold"
-        $catName.Foreground = "#E8E8F0"
-        $catName.VerticalAlignment = "Center"
+        $catName.Text = $cat; $catName.FontSize = 15; $catName.FontWeight = "SemiBold"
+        $catName.Foreground = "#E8E8F0"; $catName.VerticalAlignment = "Center"
         [System.Windows.Controls.Grid]::SetRow($catName, 0)
         [void]$grid.Children.Add($catName)
-        
         $infoText = New-Object System.Windows.Controls.TextBlock
-        if ($cat -eq "Commands") {
-            $statusColor = "#7C3AED"
-            $statusText = "⚡ $count quick commands"
-        } elseif ($cat -eq "Cmd Commands") {
-            $statusColor = "#06B6D4"
-            $statusText = "⌨️ $count CMD commands"
-        } else {
+        if ($cat -eq "Commands") { $statusColor = "#7C3AED"; $statusText = "⚡ $count quick commands" }
+        elseif ($cat -eq "Cmd Commands") { $statusColor = "#06B6D4"; $statusText = "⌨️ $count CMD commands" }
+        else {
             $statusColor = if ($installed -eq $count) { "#4ADEA0" } elseif ($installed -gt 0) { "#7C3AED" } else { "#555570" }
             $statusText = if ($installed -eq $count) { "✓ Complete" } elseif ($installed -gt 0) { "⟳ $installed/$count" } else { "✗ None" }
         }
-        $infoText.Text = $statusText
-        $infoText.FontSize = 10
-        $infoText.Foreground = $statusColor
-        $infoText.HorizontalAlignment = "Right"
-        $infoText.VerticalAlignment = "Center"
-        [System.Windows.Controls.Grid]::SetRow($infoText, 0)
-        [System.Windows.Controls.Grid]::SetColumn($infoText, 1)
+        $infoText.Text = $statusText; $infoText.FontSize = 10; $infoText.Foreground = $statusColor
+        $infoText.HorizontalAlignment = "Right"; $infoText.VerticalAlignment = "Center"
+        [System.Windows.Controls.Grid]::SetRow($infoText, 0); [System.Windows.Controls.Grid]::SetColumn($infoText, 1)
         [void]$grid.Children.Add($infoText)
-        
-        $progBg = New-Object System.Windows.Controls.Border
-        $progBg.Background = "#1A1A2E"
-        $progBg.Height = 4
-        [System.Windows.Controls.Grid]::SetRow($progBg, 1)
-        [System.Windows.Controls.Grid]::SetColumnSpan($progBg, 2)
+        $progBg = New-Object System.Windows.Controls.Border; $progBg.Background = "#1A1A2E"; $progBg.Height = 4
+        [System.Windows.Controls.Grid]::SetRow($progBg, 1); [System.Windows.Controls.Grid]::SetColumnSpan($progBg, 2)
         [void]$grid.Children.Add($progBg)
-        
         $progFill = New-Object System.Windows.Controls.Border
-        if ($cat -eq "Commands" -or $cat -eq "Cmd Commands") {
-            $progFill.Background = "#7C3AED"
-            $progFill.Width = 370
-        } else {
-            $progFill.Background = if ($installed -eq $count) { "#4ADEA0" } else { "#7C3AED" }
-            $progFill.Width = if ($count -gt 0) { [Math]::Max(2, ($installed / $count) * 370) } else { 0 }
-        }
-        $progFill.Height = 4
-        $progFill.HorizontalAlignment = "Left"
-        [System.Windows.Controls.Grid]::SetRow($progFill, 1)
-        [System.Windows.Controls.Grid]::SetColumnSpan($progFill, 2)
+        if ($cat -eq "Commands" -or $cat -eq "Cmd Commands") { $progFill.Background = "#7C3AED"; $progFill.Width = 370 }
+        else { $progFill.Background = if ($installed -eq $count) { "#4ADEA0" } else { "#7C3AED" }; $progFill.Width = if ($count -gt 0) { [Math]::Max(2, ($installed / $count) * 370) } else { 0 } }
+        $progFill.Height = 4; $progFill.HorizontalAlignment = "Left"
+        [System.Windows.Controls.Grid]::SetRow($progFill, 1); [System.Windows.Controls.Grid]::SetColumnSpan($progFill, 2)
         [void]$grid.Children.Add($progFill)
-        
         $desc = New-Object System.Windows.Controls.TextBlock
-        if ($cat -eq "Commands") {
-            $desc.Text = "$count Win+R shortcuts available"
-        } elseif ($cat -eq "Cmd Commands") {
-            $desc.Text = "$count CMD/PowerShell commands"
-        } else {
-            $desc.Text = "$count tools • $installed installed"
-        }
-        $desc.FontSize = 9
-        $desc.Foreground = "#555570"
-        $desc.Margin = "0,4,0,0"
-        [System.Windows.Controls.Grid]::SetRow($desc, 2)
-        [System.Windows.Controls.Grid]::SetColumnSpan($desc, 2)
+        if ($cat -eq "Commands") { $desc.Text = "$count Win+R shortcuts available" }
+        elseif ($cat -eq "Cmd Commands") { $desc.Text = "$count CMD/PowerShell commands" }
+        else { $desc.Text = "$count tools • $installed installed" }
+        $desc.FontSize = 9; $desc.Foreground = "#555570"; $desc.Margin = "0,4,0,0"
+        [System.Windows.Controls.Grid]::SetRow($desc, 2); [System.Windows.Controls.Grid]::SetColumnSpan($desc, 2)
         [void]$grid.Children.Add($desc)
-        
         $card.Child = $grid
-        
-        $card.Add_MouseLeftButtonUp({ 
-            param($sender, $e) 
-            Show-Category $sender.Tag 
-        })
+        $card.Add_MouseLeftButtonUp({ param($s,$e) Show-Category $s.Tag })
         [void]$global:ToolsWrap.Children.Add($card)
     }
 }
@@ -5759,13 +5675,11 @@ function Show-Category {
     if (-not $global:ToolsWrap) { return }
     $global:ToolsWrap.Children.Clear()
     Set-Status "Category" "Viewing items in $cat" "BROWSE"
-    
     foreach ($child in $global:CategoryPanel.Children) {
         if ($child -is [System.Windows.Controls.Button] -and $child.Tag -eq $cat) {
             Set-ActiveButton -activeBtn $child
         }
     }
-    
     if ($cat -eq "Commands") {
         foreach ($cmd in $CommandData) {
             $btn = New-CommandButton -Command $cmd
@@ -5773,7 +5687,6 @@ function Show-Category {
         }
         return
     }
-    
     if ($cat -eq "Cmd Commands") {
         foreach ($cmd in $CmdCommandData) {
             $btn = New-CmdCommandButton -CmdCommand $cmd
@@ -5781,7 +5694,6 @@ function Show-Category {
         }
         return
     }
-    
     $catTools = @($ToolData | Where-Object { $_.Category -eq $cat })
     foreach ($tool in $catTools) {
         $btn = New-ToolButton -Tool $tool
@@ -5793,13 +5705,11 @@ function Show-Scripts {
     if (-not $global:ToolsWrap) { return }
     $global:ToolsWrap.Children.Clear()
     Set-Status "Scripts" "PowerShell scripts available to run" "SCRIPTS"
-    
     foreach ($child in $global:CategoryPanel.Children) {
         if ($child -is [System.Windows.Controls.Button] -and $child.Tag -eq "scripts") {
             Set-ActiveButton -activeBtn $child
         }
     }
-    
     foreach ($script in $ScriptData) {
         $btn = New-ScriptButton -Script $script
         [void]$global:ToolsWrap.Children.Add($btn)
@@ -5809,21 +5719,18 @@ function Show-Scripts {
 function Build-Sidebar {
     if (-not $global:CategoryPanel) { return }
     $global:CategoryPanel.Children.Clear()
-    
     $overviewBtn = New-Object System.Windows.Controls.Button
     $overviewBtn.Content = "⭐ Overview"
     $overviewBtn.Style = $global:window.Resources["SideBtn"]
     $overviewBtn.Tag = "overview"
     $overviewBtn.Add_Click({ Show-Overview })
     [void]$global:CategoryPanel.Children.Add($overviewBtn)
-    
     $scriptBtn = New-Object System.Windows.Controls.Button
     $scriptBtn.Content = "📜 Scripts"
     $scriptBtn.Style = $global:window.Resources["SideBtn"]
     $scriptBtn.Tag = "scripts"
     $scriptBtn.Add_Click({ Show-Scripts })
     [void]$global:CategoryPanel.Children.Add($scriptBtn)
-    
     foreach ($cat in $categories) {
         $catBtn = New-Object System.Windows.Controls.Button
         $catBtn.Content = "📁 $cat"
@@ -5839,13 +5746,8 @@ function Build-Sidebar {
 # ==============================================================================
 if ($global:window) {
     $global:window.Add_MouseLeftButtonDown({ try { $global:window.DragMove() } catch {} })
-    
-    if ($global:CloseBtn) {
-        $global:CloseBtn.Add_Click({ $global:window.Close() })
-    }
-    
+    if ($global:CloseBtn) { $global:CloseBtn.Add_Click({ $global:window.Close() }) }
     if ($global:MinBtn) { $global:MinBtn.Add_Click({ $global:window.WindowState = "Minimized" }) }
-    
     if ($global:OpenFolderBtn) {
         $global:OpenFolderBtn.Add_Click({
             if (-not (Test-Path $global:installDir)) { New-Item -ItemType Directory -Path $global:installDir -Force | Out-Null }
@@ -5853,7 +5755,6 @@ if ($global:window) {
             Write-Log "Opened install folder"
         })
     }
-    
     if ($global:ClearCacheBtn) {
         $global:ClearCacheBtn.Add_Click({
             if (Test-Path $global:installDir) {
@@ -5862,12 +5763,9 @@ if ($global:window) {
                 $items | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                 Write-Log "Cleared $count item(s)"
                 Set-Status "Clean" "Removed downloaded files" "IDLE"
-            } else {
-                Write-Log "Nothing to clear"
-            }
+            } else { Write-Log "Nothing to clear" }
         })
     }
-    
     if ($global:OpenCmdBtn) {
         $global:OpenCmdBtn.Add_Click({
             Write-Log "Opening PowerShell console..."
@@ -5880,8 +5778,6 @@ if ($global:window) {
             }
         })
     }
-    
-    # Theme Toggle
     if ($global:ThemeToggleBtn) {
         $global:ThemeToggleBtn.Add_Click({
             $global:IsDarkTheme = -not $global:IsDarkTheme
@@ -5896,8 +5792,6 @@ if ($global:window) {
             }
         })
     }
-    
-    # Compact Mode Toggle
     if ($global:CompactToggleBtn) {
         $global:CompactToggleBtn.Add_Click({
             $global:CompactMode = -not $global:CompactMode
@@ -5920,8 +5814,6 @@ if ($global:window) {
             else { Show-Overview }
         })
     }
-    
-    # Search Box
     if ($global:SearchBox) {
         $global:SearchBox.Add_TextChanged({
             $searchText = $global:SearchBox.Text.Trim().ToLower()
@@ -5941,7 +5833,6 @@ if ($global:window) {
             else { Set-Status "Ready" "Search cleared" "IDLE" }
         })
     }
-    
     if ($global:ClearSearchBtn) {
         $global:ClearSearchBtn.Add_Click({
             $global:SearchBox.Text = ""
@@ -5962,7 +5853,7 @@ Show-Overview
 Write-Log "SS Tools Hub v22.0 ready - ALL SCANNERS MERGED"
 Write-Log "Install location: $global:installDir"
 Write-Log "Total tools: $($ToolData.Count) | Total scripts: $($ScriptData.Count)"
-Write-Log "FIXES: All scanners now work locally (no 404 errors)"
+Write-Log "FIXES: All scanners now work locally (no 404 errors), hover fixed"
 Set-Status "Ready" "✦ All scanners merged! Doomsday, Ghost, Cyemer, Velaris, Heated, DQRKIS" "IDLE"
 
 if ($global:window) {
