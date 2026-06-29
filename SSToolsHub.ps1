@@ -4879,15 +4879,19 @@ function New-ToolButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Tool
+
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1
+    $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
+
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
+
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = $Tool.Name
     $nameBlock.FontWeight = "SemiBold"
@@ -4899,6 +4903,7 @@ function New-ToolButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
+
     $author = if ($Tool.Author -and $Tool.Author -ne "") { $Tool.Author } else { "Unknown" }
     $authorBorder = New-Object System.Windows.Controls.Border
     $authorBorder.Background = "#1A1A2E"
@@ -4906,6 +4911,7 @@ function New-ToolButton {
     $authorBorder.HorizontalAlignment = "Center"
     $authorBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($authorBorder, 1)
+
     $authorBlock = New-Object System.Windows.Controls.TextBlock
     $authorBlock.Text = "✦ by $author ✦"
     $authorBlock.FontSize = 8
@@ -4915,12 +4921,14 @@ function New-ToolButton {
     $authorBlock.VerticalAlignment = "Center"
     $authorBorder.Child = $authorBlock
     [void]$grid.Children.Add($authorBorder)
+
     $tagBorder = New-Object System.Windows.Controls.Border
     $tagBorder.Background = "#141420"
     $tagBorder.Padding = "6,1"
     $tagBorder.HorizontalAlignment = "Right"
     $tagBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($tagBorder, 2)
+
     $tagText = New-Object System.Windows.Controls.TextBlock
     $tagText.Text = if ($Tool.Type -eq "launcher") { "LAUNCHER" } else { $Tool.Type.ToUpper() }
     $tagText.FontSize = 7
@@ -4928,27 +4936,35 @@ function New-ToolButton {
     $tagText.Foreground = "#06B6D4"
     $tagBorder.Child = $tagText
     [void]$grid.Children.Add($tagBorder)
+
     $btn.Content = $grid
+
     $btn.Add_MouseEnter({
         $b = $_.Source
         $scale = $b.RenderTransform
         $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animX.To = 1.05; $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animX.To = 1.05
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
         $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animY.To = 1.05; $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animY.To = 1.05
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
+
     $btn.Add_MouseLeave({
         $b = $_.Source
         $scale = $b.RenderTransform
         $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animX.To = 1; $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animX.To = 1
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
         $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
-        $animY.To = 1; $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $animY.To = 1
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
+
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $toolData = $clickedBtn.Tag
@@ -5013,15 +5029,19 @@ function New-ScriptButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Script
+
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1
+    $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
+
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
+
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = if ($Script.URL -eq "LOCAL") { "🔧 $($Script.Name)" } else { $Script.Name }
     $nameBlock.FontWeight = "SemiBold"
@@ -5033,12 +5053,14 @@ function New-ScriptButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
+
     $authorBorder = New-Object System.Windows.Controls.Border
     $authorBorder.Background = "#1A1A2E"
     $authorBorder.Padding = "6,2"
     $authorBorder.HorizontalAlignment = "Center"
     $authorBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($authorBorder, 1)
+
     $authorBlock = New-Object System.Windows.Controls.TextBlock
     $authorBlock.Text = "✦ by $($Script.Author) ✦"
     $authorBlock.FontSize = 8
@@ -5048,12 +5070,14 @@ function New-ScriptButton {
     $authorBlock.VerticalAlignment = "Center"
     $authorBorder.Child = $authorBlock
     [void]$grid.Children.Add($authorBorder)
+
     $tagBorder = New-Object System.Windows.Controls.Border
     $tagBorder.Background = "#141420"
     $tagBorder.Padding = "6,1"
     $tagBorder.HorizontalAlignment = "Right"
     $tagBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($tagBorder, 2)
+
     $tagText = New-Object System.Windows.Controls.TextBlock
     $tagText.Text = if ($Script.URL -eq "LOCAL") { "LOCAL" } else { "PS1" }
     $tagText.FontSize = 7
@@ -5061,9 +5085,35 @@ function New-ScriptButton {
     $tagText.Foreground = if ($Script.URL -eq "LOCAL") { "#FF6B6B" } else { "#06B6D4" }
     $tagBorder.Child = $tagText
     [void]$grid.Children.Add($tagBorder)
+
     $btn.Content = $grid
-    $btn.Add_MouseEnter({ ... })  # same as tool button
-    $btn.Add_MouseLeave({ ... })
+
+    $btn.Add_MouseEnter({
+        $b = $_.Source
+        $scale = $b.RenderTransform
+        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animX.To = 1.05
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
+        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animY.To = 1.05
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
+    })
+
+    $btn.Add_MouseLeave({
+        $b = $_.Source
+        $scale = $b.RenderTransform
+        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animX.To = 1
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
+        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animY.To = 1
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
+    })
+
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $scriptData = $clickedBtn.Tag
@@ -5082,7 +5132,10 @@ function New-ScriptButton {
                     "Heated Mod Analyzer" { Run-HeatedModAnalyzer }
                     "Hacked Clients Detector" { Run-HackedClientsDetector }
                     "DQRKIS Client Detector" { Run-DQRKISDetector }
-                    default { Write-Log "Unknown local script"; Set-Status "Error" "Unknown local script" "ERROR" }
+                    default {
+                        Write-Log "Unknown local script: $($scriptData.Name)"
+                        Set-Status "Error" "Unknown local script" "ERROR"
+                    }
                 }
             } else {
                 $psCommand = "Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression (Invoke-RestMethod -Uri '$($scriptData.URL)')"
@@ -5112,15 +5165,19 @@ function New-CommandButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Command
+
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1
+    $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
+
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
+
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = "$($Command.Icon) $($Command.Name)"
     $nameBlock.FontWeight = "SemiBold"
@@ -5132,6 +5189,7 @@ function New-CommandButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
+
     $pathBlock = New-Object System.Windows.Controls.TextBlock
     $pathBlock.Text = $Command.Command
     $pathBlock.FontSize = 8
@@ -5142,6 +5200,7 @@ function New-CommandButton {
     $pathBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($pathBlock, 1)
     [void]$grid.Children.Add($pathBlock)
+
     $descBlock = New-Object System.Windows.Controls.TextBlock
     $descBlock.Text = $Command.Description
     $descBlock.FontSize = 8
@@ -5151,9 +5210,35 @@ function New-CommandButton {
     $descBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($descBlock, 2)
     [void]$grid.Children.Add($descBlock)
+
     $btn.Content = $grid
-    $btn.Add_MouseEnter({ ... })  # same
-    $btn.Add_MouseLeave({ ... })
+
+    $btn.Add_MouseEnter({
+        $b = $_.Source
+        $scale = $b.RenderTransform
+        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animX.To = 1.05
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
+        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animY.To = 1.05
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
+    })
+
+    $btn.Add_MouseLeave({
+        $b = $_.Source
+        $scale = $b.RenderTransform
+        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animX.To = 1
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
+        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animY.To = 1
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
+    })
+
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $cmdData = $clickedBtn.Tag
@@ -5233,15 +5318,19 @@ function New-CmdCommandButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $CmdCommand
+
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
-    $scaleTransform.ScaleX = 1; $scaleTransform.ScaleY = 1
+    $scaleTransform.ScaleX = 1
+    $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
+
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
+
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = "$($CmdCommand.Icon) $($CmdCommand.Name)"
     $nameBlock.FontWeight = "SemiBold"
@@ -5253,6 +5342,7 @@ function New-CmdCommandButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
+
     $cmdBlock = New-Object System.Windows.Controls.TextBlock
     $cmdBlock.Text = $CmdCommand.Command
     $cmdBlock.FontSize = 8
@@ -5263,6 +5353,7 @@ function New-CmdCommandButton {
     $cmdBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($cmdBlock, 1)
     [void]$grid.Children.Add($cmdBlock)
+
     $descBlock = New-Object System.Windows.Controls.TextBlock
     $descBlock.Text = $CmdCommand.Description
     $descBlock.FontSize = 8
@@ -5272,9 +5363,35 @@ function New-CmdCommandButton {
     $descBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($descBlock, 2)
     [void]$grid.Children.Add($descBlock)
+
     $btn.Content = $grid
-    $btn.Add_MouseEnter({ ... })
-    $btn.Add_MouseLeave({ ... })
+
+    $btn.Add_MouseEnter({
+        $b = $_.Source
+        $scale = $b.RenderTransform
+        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animX.To = 1.05
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
+        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animY.To = 1.05
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
+    })
+
+    $btn.Add_MouseLeave({
+        $b = $_.Source
+        $scale = $b.RenderTransform
+        $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animX.To = 1
+        $animX.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animX)
+        $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animY.To = 1
+        $animY.Duration = [TimeSpan]::FromMilliseconds(150)
+        $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
+    })
+
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $cmdData = $clickedBtn.Tag
@@ -5377,7 +5494,7 @@ function New-CmdCommandButton {
             </Setter>
         </Style>
 
-        <!-- Fixed: ToolBtn style for all tool/script/command buttons -->
+        <!-- ToolBtn style to kill blue hover -->
         <Style x:Key="ToolBtn" TargetType="Button">
             <Setter Property="Background" Value="#0F0F1A"/>
             <Setter Property="Foreground" Value="#E8E8F0"/>
