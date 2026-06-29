@@ -4787,8 +4787,14 @@ $ScriptData = @(
 # COMMANDS DATA - Win+R Shortcuts
 # ==============================================================================
 $CommandData = @(
+    # shell: commands (these work with explorer.exe shell: prefix)
     [PSCustomObject]@{ Name="Recent Files"; Command="shell:recent"; Description="Open recent files folder"; Icon="📁" },
-    [PSCustomObject]@{ Name="Prefetch Folder"; Command="prefetch"; Description="Open Windows prefetch folder"; Icon="⚡" },
+    [PSCustomObject]@{ Name="Startup Folder"; Command="shell:startup"; Description="Open startup programs folder"; Icon="🚀" },
+    [PSCustomObject]@{ Name="Send To"; Command="shell:sendto"; Description="Open Send To folder"; Icon="📤" },
+    [PSCustomObject]@{ Name="Start Menu"; Command="shell:start menu"; Description="Open Start Menu folder"; Icon="🏁" },
+    [PSCustomObject]@{ Name="Common Startup"; Command="shell:common startup"; Description="Open all users startup"; Icon="🚀" },
+    
+    # Environment variables (these work with [Environment]::ExpandEnvironmentVariables)
     [PSCustomObject]@{ Name="AppData (Roaming)"; Command="%APPDATA%"; Description="Open roaming app data"; Icon="📂" },
     [PSCustomObject]@{ Name="Local AppData"; Command="%LOCALAPPDATA%"; Description="Open local app data"; Icon="📂" },
     [PSCustomObject]@{ Name="Program Files"; Command="%ProgramFiles%"; Description="Open Program Files"; Icon="💻" },
@@ -4796,21 +4802,24 @@ $CommandData = @(
     [PSCustomObject]@{ Name="Windows Folder"; Command="%windir%"; Description="Open Windows system folder"; Icon="🪟" },
     [PSCustomObject]@{ Name="System32"; Command="%windir%\System32"; Description="Open System32 folder"; Icon="⚙️" },
     [PSCustomObject]@{ Name="Temp Folder"; Command="%TEMP%"; Description="Open temporary files folder"; Icon="🗑️" },
-    [PSCustomObject]@{ Name="Startup Folder"; Command="shell:startup"; Description="Open startup programs folder"; Icon="🚀" },
     [PSCustomObject]@{ Name="Downloads"; Command="%USERPROFILE%\Downloads"; Description="Open Downloads folder"; Icon="⬇️" },
     [PSCustomObject]@{ Name="Desktop"; Command="%USERPROFILE%\Desktop"; Description="Open Desktop folder"; Icon="🖥️" },
     [PSCustomObject]@{ Name="Documents"; Command="%USERPROFILE%\Documents"; Description="Open Documents folder"; Icon="📄" },
     [PSCustomObject]@{ Name="Pictures"; Command="%USERPROFILE%\Pictures"; Description="Open Pictures folder"; Icon="🖼️" },
     [PSCustomObject]@{ Name="Music"; Command="%USERPROFILE%\Music"; Description="Open Music folder"; Icon="🎵" },
     [PSCustomObject]@{ Name="Videos"; Command="%USERPROFILE%\Videos"; Description="Open Videos folder"; Icon="🎬" },
-    [PSCustomObject]@{ Name="Send To"; Command="shell:sendto"; Description="Open Send To folder"; Icon="📤" },
-    [PSCustomObject]@{ Name="Start Menu"; Command="shell:start menu"; Description="Open Start Menu folder"; Icon="🏁" },
-    [PSCustomObject]@{ Name="Common Startup"; Command="shell:common startup"; Description="Open all users startup"; Icon="🚀" },
+    
+    # Direct paths (prefetch)
+    [PSCustomObject]@{ Name="Prefetch Folder"; Command="C:\Windows\Prefetch"; Description="Open Windows prefetch folder"; Icon="⚡" },
+    
+    # MMC/CPL commands
     [PSCustomObject]@{ Name="Network Connections"; Command="ncpa.cpl"; Description="Open network connections"; Icon="🌐" },
     [PSCustomObject]@{ Name="Device Manager"; Command="devmgmt.msc"; Description="Open Device Manager"; Icon="🔧" },
     [PSCustomObject]@{ Name="Disk Management"; Command="diskmgmt.msc"; Description="Open Disk Management"; Icon="💾" },
     [PSCustomObject]@{ Name="Event Viewer"; Command="eventvwr.msc"; Description="Open Event Viewer"; Icon="📊" },
     [PSCustomObject]@{ Name="Services"; Command="services.msc"; Description="Open Services manager"; Icon="⚙️" },
+    
+    # System tools
     [PSCustomObject]@{ Name="Registry Editor"; Command="regedit"; Description="Open Registry Editor"; Icon="📝" },
     [PSCustomObject]@{ Name="Task Manager"; Command="taskmgr"; Description="Open Task Manager"; Icon="📊" },
     [PSCustomObject]@{ Name="Control Panel"; Command="control"; Description="Open Control Panel"; Icon="🎛️" },
