@@ -4870,7 +4870,7 @@ $CmdCommandData = @(
 function New-ToolButton {
     param($Tool)
     
-    $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -5036,7 +5036,7 @@ function New-ToolButton {
 function New-ScriptButton {
     param($Script)
     
-    $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -5182,7 +5182,7 @@ function New-ScriptButton {
 function New-CommandButton {
     param($Command)
     
-    $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
@@ -5324,7 +5324,7 @@ function New-CommandButton {
 function New-CmdCommandButton {
     param($CmdCommand)
     
-    $btn = New-Object System.Windows.Controls.Button
+    $btn.Style = $global:window.Resources["ToolBtn"]
     $btn.Width = if ($global:CompactMode) { 160 } else { 205 }
     $btn.Height = if ($global:CompactMode) { 80 } else { 100 }
     $btn.Margin = "5"
