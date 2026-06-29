@@ -5428,7 +5428,10 @@ function New-CmdCommandButton {
         <SolidColorBrush x:Key="TextPrimary" Color="#E8E8F0"/>
         <SolidColorBrush x:Key="TextSecondary" Color="#8A8AA0"/>
         <SolidColorBrush x:Key="TextMuted" Color="#555570"/>
-        <LinearGradientBrush x:Key="AccentGrad" StartPoint="0,0" EndPoint="1,0"><GradientStop Offset="0" Color="#7C3AED"/><GradientStop Offset="1" Color="#06B6D4"/></LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccentGrad" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Offset="0" Color="#7C3AED"/>
+            <GradientStop Offset="1" Color="#06B6D4"/>
+        </LinearGradientBrush>
         <DropShadowEffect x:Key="Shadow" BlurRadius="30" ShadowDepth="0" Opacity="0.3" Color="#000000"/>
 
         <Style x:Key="SideBtn" TargetType="Button">
@@ -5486,18 +5489,35 @@ function New-CmdCommandButton {
         <Border Background="#0A0A0F" CornerRadius="0" BorderBrush="#2A2A40" BorderThickness="1" Margin="10">
             <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="0" Opacity="0.4" Color="#000000"/></Border.Effect>
             <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="56"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
                 <!-- Header -->
                 <Border Grid.Row="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="0,0,0,1">
                     <Grid Margin="16,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Width="36" Height="36" Background="#7C3AED" Margin="0,0,10,0"><TextBlock Text="SS" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                            <StackPanel><TextBlock Text="SS TOOLS HUB" FontSize="16" FontWeight="Bold" Foreground="#E8E8F0"/><TextBlock Text="POWERED BY 3NTR" FontSize="8" Foreground="#7C3AED"/></StackPanel>
+                            <Border Width="36" Height="36" Background="#7C3AED" Margin="0,0,10,0">
+                                <TextBlock Text="SS" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Text="SS TOOLS HUB" FontSize="16" FontWeight="Bold" Foreground="#E8E8F0"/>
+                                <TextBlock Text="POWERED BY 3NTR" FontSize="8" Foreground="#7C3AED"/>
+                            </StackPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="8,2,12,2" Margin="0,0,10,0"><StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="#4ADEA0" Margin="0,0,6,0"/><TextBlock Text="ONLINE" Foreground="#4ADEA0" FontSize="9" FontWeight="Bold"/></StackPanel></Border>
+                            <Border Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="8,2,12,2" Margin="0,0,10,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="6" Height="6" Fill="#4ADEA0" Margin="0,0,6,0"/>
+                                    <TextBlock Text="ONLINE" Foreground="#4ADEA0" FontSize="9" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
                             <Button x:Name="ThemeToggleBtn" Content="🌙" Style="{StaticResource TitleBtn}" Margin="0,0,2,0" ToolTip="Toggle Theme"/>
                             <Button x:Name="CompactToggleBtn" Content="▦" Style="{StaticResource TitleBtn}" Margin="0,0,2,0" ToolTip="Toggle Compact Mode"/>
                             <Button x:Name="OpenFolderBtn" Content="📁" Style="{StaticResource TitleBtn}" Margin="0,0,2,0"/>
@@ -5511,9 +5531,12 @@ function New-CmdCommandButton {
 
                 <!-- Body -->
                 <Grid Grid.Row="1">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="200"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                    <!-- Sidebar with ScrollViewer -->
+                    <!-- Sidebar -->
                     <Border Grid.Column="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="0,0,1,0">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel Margin="8,12">
@@ -5529,19 +5552,39 @@ function New-CmdCommandButton {
 
                     <!-- Main Panel -->
                     <Grid Grid.Column="1" Margin="14,12,14,14">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="8"/><RowDefinition Height="*"/><RowDefinition Height="8"/><RowDefinition Height="130"/></Grid.RowDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="130"/>
+                        </Grid.RowDefinitions>
 
                         <!-- Status Bar -->
                         <Border Grid.Row="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="14,8">
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel><TextBlock x:Name="StatusTitle" Text="Ready" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/><TextBlock x:Name="StatusSub" Text="Select a tool or script from the sidebar." FontSize="11" Foreground="#8A8AA0"/></StackPanel>
-                                <Border Grid.Column="1" Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,3" VerticalAlignment="Center"><TextBlock x:Name="StatusBadge" Text="IDLE" FontSize="10" FontWeight="Bold" Foreground="#7C3AED"/></Border>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock x:Name="StatusTitle" Text="Ready" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+                                    <TextBlock x:Name="StatusSub" Text="Select a tool or script from the sidebar." FontSize="11" Foreground="#8A8AA0"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" Background="#141420" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,3" VerticalAlignment="Center">
+                                    <TextBlock x:Name="StatusBadge" Text="IDLE" FontSize="10" FontWeight="Bold" Foreground="#7C3AED"/>
+                                </Border>
                             </Grid>
                         </Border>
 
                         <!-- Search Bar -->
                         <Border Grid.Row="1" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,6">
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <TextBox x:Name="SearchBox" Background="#141420" Foreground="#E8E8F0" BorderBrush="#2A2A40" BorderThickness="1" FontSize="12" Padding="8,6"/>
                                 <Button Grid.Column="1" Content="✕" Background="Transparent" Foreground="#555570" BorderThickness="0" Width="30" Height="30" Cursor="Hand" x:Name="ClearSearchBtn" Visibility="Collapsed"/>
                             </Grid>
@@ -5556,7 +5599,11 @@ function New-CmdCommandButton {
 
                         <!-- Console -->
                         <Border Grid.Row="5" Background="#0A0A0F" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,6">
-                            <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
                                 <TextBlock Text="ACTIVITY LOG" FontSize="9" FontWeight="Bold" Foreground="#7C3AED" FontFamily="Consolas" Margin="0,0,0,2"/>
                                 <TextBox x:Name="LogBox" Grid.Row="1" Background="Transparent" Foreground="#06B6D4" BorderThickness="0" FontFamily="Consolas" FontSize="10" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
                             </Grid>
