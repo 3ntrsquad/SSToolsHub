@@ -5240,9 +5240,66 @@ function New-CommandButton {
         Write-Log "Opening: $($cmdData.Command) ($($cmdData.Name))"
         Set-Status "Running" "Opening $($cmdData.Name)..." "BUSY"
         try {
-            if ($cmdData.Command -match '\.(msc|cpl)$') { Start-Process $cmdData.Command }
-            elseif ($cmdData.Command -match '^(shell:|%|regedit|taskmgr|control)') { Start-Process explorer.exe $cmdData.Command }
-            else { Start-Process explorer.exe $cmdData.Command }
+            $command = $cmdData.Command
+            
+            # ========== FIX: Handle different command types ==========
+            
+            # 1. Handle shell: commands properly
+            if ($command -match '^shell:') {
+                # shell: commands need to be opened with explorer with the shell: prefix
+                Start-Process "explorer.exe" -ArgumentList $command
+                Write-Log "Opened shell command: $command"
+            }
+            # 2. Handle environment variables (%APPDATA%, %TEMP%, etc.)
+            elseif ($command -match '^%.*%$') {
+                # Expand environment variable and open folder
+                $expandedPath = [Environment]::ExpandEnvironmentVariables($command)
+                if (Test-Path $expandedPath) {
+                    Start-Process "explorer.exe" -ArgumentList $expandedPath
+                    Write-Log "Opened: $expandedPath"
+                } else {
+                    Write-Log "Path not found: $expandedPath"
+                    Set-Status "Error" "Path not found: $expandedPath" "ERROR"
+                }
+            }
+            # 3. Handle paths with environment variables inside
+            elseif ($command -match '%') {
+                $expandedPath = [Environment]::ExpandEnvironmentVariables($command)
+                if (Test-Path $expandedPath) {
+                    Start-Process "explorer.exe" -ArgumentList $expandedPath
+                    Write-Log "Opened: $expandedPath"
+                } else {
+                    Write-Log "Path not found: $expandedPath"
+                    Set-Status "Error" "Path not found: $expandedPath" "ERROR"
+                }
+            }
+            # 4. Handle .msc and .cpl files (MMC/Control Panel items)
+            elseif ($command -match '\.(msc|cpl)$') {
+                Start-Process $command
+                Write-Log "Opened MMC/CPL: $command"
+            }
+            # 5. Handle regedit, taskmgr, etc.
+            elseif ($command -match '^(regedit|taskmgr|control|cmd|powershell)') {
+                Start-Process $command
+                Write-Log "Opened system tool: $command"
+            }
+            # 6. Default: Try opening as folder path
+            else {
+                # Try expanding any variables in the path
+                $expandedPath = [Environment]::ExpandEnvironmentVariables($command)
+                if (Test-Path $expandedPath -PathType Container) {
+                    Start-Process "explorer.exe" -ArgumentList $expandedPath
+                    Write-Log "Opened folder: $expandedPath"
+                } elseif (Test-Path $expandedPath -PathType Leaf) {
+                    Start-Process "explorer.exe" -ArgumentList "/select,$expandedPath"
+                    Write-Log "Selected file: $expandedPath"
+                } else {
+                    # Try as shell command anyway
+                    Start-Process "explorer.exe" -ArgumentList $command
+                    Write-Log "Attempted to open: $command"
+                }
+            }
+            
             Write-Log "Opened: $($cmdData.Name)"
             Set-Status "Ready" "$($cmdData.Name) opened." "DONE"
         } catch {
