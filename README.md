@@ -1,7 +1,7 @@
 # SSToolsHub | 3ntrSquad | discord unseentracking | For learning purposes only.
 # SSToolsHub
 SSToolsHub — 100+ SS tools in one PowerShell hub to catch minecraft cheaters !.
-1. Run SSToolsHub.ps1
+1. Run SSToolHublauncher.ps1
 2. Click any tool
 3. Explore & learn
 All the tools and the tools belong to their respective authors.
