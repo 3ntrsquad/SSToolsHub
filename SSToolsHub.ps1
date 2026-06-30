@@ -1,16 +1,3 @@
-# ==============================================================================
-# SS TOOLS HUB v22.0 - ULTIMATE ALL-IN-ONE WITH ALL SCANNERS
-# ==============================================================================
-# MERGED TOOLS:
-#   - Doomsday Finder v3 (TeslaPro)
-#   - Ghost Client Scanner (TeslaPro)
-#   - Cyemer Scanner
-#   - Velaris Scanner
-#   - Heated Mod Analyzer
-#   - Hacked Clients Detector
-#   - DQRKIS Client Detector (Fixed)
-# ==============================================================================
-
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml, System.Windows.Forms, System.Drawing, System.IO.Compression.FileSystem
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 [System.GC]::Collect()
@@ -86,13 +73,12 @@ function Expand-ZipSafe {
 }
 
 # ==============================================================================
-# LOCAL SCANNER FUNCTIONS - All scanners as local scripts
+# SCANNER FUNCTIONS
 # ==============================================================================
 
 function Run-DoomsdayFinder {
     Write-Log "Starting Doomsday Finder v3..."
     Set-Status "Running" "Doomsday Finder v3 - Scanning..." "BUSY"
-    
     try {
         $scriptContent = @'
 #Requires -Version 5.1
@@ -144,36 +130,24 @@ function Test-Administrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# Global debug flag
 $script:DebugMode = $false
 $script:CheckUSN = $true
-
-# Cache for USN journal data
 $script:RecentDeletions = @{}
 $script:USNSearched = $false
 
 function Get-NTFSDrives {
     $ntfsDrives = @()
-    
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' }
-    
     foreach ($drive in $drives) {
         try {
             $driveLetter = $drive.Root.Substring(0, 2)
-            
-            # Check if drive is NTFS
             $volume = Get-Volume -DriveLetter $driveLetter[0] -ErrorAction SilentlyContinue
-            
             if ($volume -and $volume.FileSystem -eq 'NTFS') {
                 $ntfsDrives += $driveLetter[0]
             }
         }
-        catch {
-            # Skip drives that can't be accessed
-            continue
-        }
+        catch { continue }
     }
-    
     return $ntfsDrives
 }
 
@@ -237,50 +211,35 @@ function Get-RecentDeletionsFromUSN {
         [string[]]$DriveLetters,
         [int]$MinutesBack = 30
     )
-    
     if ($script:USNSearched) {
         return $script:RecentDeletions
     }
-    
     $allRecentActivity = @{}
-    
     foreach ($driveLetter in $DriveLetters) {
         try {
             Write-Host "[*] Scanning drive $driveLetter`: for recent file activity (last $MinutesBack minutes)..." -ForegroundColor Cyan
-            
             $cutoffTime = (Get-Date).AddMinutes(-$MinutesBack)
-            
-            # Run fsutil to get USN journal
             $usnOutput = & fsutil usn readjournal "$driveLetter`:" 2>$null
-            
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "[!] Unable to read USN Journal on drive $driveLetter`: (may be disabled)" -ForegroundColor Yellow
                 continue
             }
-            
             $totalLines = $usnOutput.Count
-            
             if ($totalLines -eq 0) {
                 Write-Host "[!] No USN Journal data on drive $driveLetter`:" -ForegroundColor Yellow
                 continue
             }
-            
             $recentActivity = @{}
             $activityCount = 0
             $currentFile = ""
             $currentTime = $null
             $currentReason = ""
             $entriesProcessed = 0
-            
             foreach ($line in $usnOutput) {
-                # Skip empty lines
                 if ([string]::IsNullOrWhiteSpace($line)) { continue }
-                
-                # Look for "File name" line (with variable spacing)
                 if ($line -match 'File name\s+:\s*(.+)$') {
                     $currentFile = $Matches[1].Trim()
                 }
-                # Look for "Time stamp" line (with variable spacing)
                 elseif ($line -match 'Time stamp\s+:\s*(.+)$') {
                     $timeStr = $Matches[1].Trim()
                     try {
@@ -289,58 +248,41 @@ function Get-RecentDeletionsFromUSN {
                         $currentTime = $null
                     }
                 }
-                # Look for "Reason" line - accept ANY reason
                 elseif ($line -match 'Reason\s+:\s*(.+)$') {
                     $entriesProcessed++
                     $currentReason = $Matches[1].Trim()
-                    
-                    # Check if this entry is within our time window (ANY reason)
                     if ($currentFile -and $currentTime -and $currentTime -gt $cutoffTime) {
-                        # Store with drive letter prefix to avoid collisions
                         $fullKey = "$driveLetter`:\$currentFile"
-                        
-                        # If file appears multiple times, keep the most recent
                         if (-not $recentActivity.ContainsKey($fullKey) -or 
                             $recentActivity[$fullKey].Timestamp -lt $currentTime) {
-                            
                             $recentActivity[$fullKey] = @{
                                 Timestamp = $currentTime
                                 Reason = $currentReason
                                 Drive = $driveLetter
                             }
-                            
                             $activityCount++
                         }
                     }
-                    
-                    # Reset for next entry
                     $currentFile = ""
                     $currentTime = $null
                     $currentReason = ""
                 }
             }
-            
             Write-Host "[+] Drive $driveLetter`: - Found $activityCount files with recent activity" -ForegroundColor Green
-            
-            # Merge into overall activity
             foreach ($key in $recentActivity.Keys) {
                 $allRecentActivity[$key] = $recentActivity[$key]
             }
-            
         }
         catch {
             Write-Host "[!] Error reading USN Journal on drive $driveLetter`: - $_" -ForegroundColor Yellow
             continue
         }
     }
-    
     $script:RecentDeletions = $allRecentActivity
     $script:USNSearched = $true
-    
     Write-Host ""
     Write-Host "[+] Total unique files with recent activity across all drives: $($allRecentActivity.Count)" -ForegroundColor Green
     Write-Host ""
-    
     return $allRecentActivity
 }
 
@@ -348,146 +290,91 @@ function Test-RecentlyDeleted {
     param(
         [string]$FilePath
     )
-    
-    # Try full path match first
     if ($script:RecentDeletions.ContainsKey($FilePath)) {
         return $script:RecentDeletions[$FilePath]
     }
-    
-    # Try just filename
     $fileName = [System.IO.Path]::GetFileName($FilePath)
-    
-    # Check if any key ends with this filename
     foreach ($key in $script:RecentDeletions.Keys) {
         if ($key -like "*\$fileName") {
             return $script:RecentDeletions[$key]
         }
     }
-    
     return $null
 }
 
 function Get-PrefetchVersion {
     param([byte[]]$data)
-    
     if ($data.Length -lt 8) { return 0 }
-    
-    # Check for SCCA signature at offset 4
     $sig = [System.Text.Encoding]::ASCII.GetString($data, 4, 4)
     if ($sig -ne "SCCA") { return 0 }
-    
-    # Version is at offset 0
     $version = [BitConverter]::ToUInt32($data, 0)
     return $version
 }
 
 function Get-SystemIndexes {
     param([string]$FilePath)
-    
     try {
         $data = [System.IO.File]::ReadAllBytes($FilePath)
-        
         if ($script:DebugMode) {
             Write-Host "  [DEBUG] File: $([System.IO.Path]::GetFileName($FilePath))" -ForegroundColor Magenta
             Write-Host "  [DEBUG] Raw size: $($data.Length) bytes" -ForegroundColor Magenta
         }
-        
         $isCompressed = ($data[0] -eq 0x4D -and $data[1] -eq 0x41 -and $data[2] -eq 0x4D)
-        
         if ($script:DebugMode) {
             Write-Host "  [DEBUG] Compressed: $isCompressed" -ForegroundColor Magenta
         }
-        
         if ($isCompressed) {
             $data = [NtdllDecompressor]::Decompress($data)
             if ($data -eq $null) {
                 Write-Warning "Failed to decompress: $FilePath"
                 return @()
             }
-            
             if ($script:DebugMode) {
                 Write-Host "  [DEBUG] Decompressed size: $($data.Length) bytes" -ForegroundColor Magenta
             }
         }
-        
-        # Validate minimum size
         if ($data.Length -lt 108) {
             Write-Warning "File too small after decompression: $FilePath"
             return @()
         }
-        
-        # Get prefetch version
         $version = Get-PrefetchVersion -data $data
-        
         if ($script:DebugMode) {
             Write-Host "  [DEBUG] Prefetch version: $version" -ForegroundColor Magenta
         }
-        
         $sig = [System.Text.Encoding]::ASCII.GetString($data, 4, 4)
         if ($sig -ne "SCCA") {
             Write-Warning "Invalid file signature: $FilePath (got: $sig)"
             return @()
         }
-        
-        # Handle different prefetch versions
-        # Version 17 = XP/2003, 23 = Vista/7, 26 = Win8.1, 30 = Win10, 31 = Win11
         $stringsOffset = 0
         $stringsSize = 0
-        
         switch ($version) {
-            17 {
-                # Windows XP/2003
-                $stringsOffset = [BitConverter]::ToUInt32($data, 100)
-                $stringsSize = [BitConverter]::ToUInt32($data, 104)
-            }
-            23 {
-                # Windows Vista/7
-                $stringsOffset = [BitConverter]::ToUInt32($data, 100)
-                $stringsSize = [BitConverter]::ToUInt32($data, 104)
-            }
-            26 {
-                # Windows 8.1
-                $stringsOffset = [BitConverter]::ToUInt32($data, 100)
-                $stringsSize = [BitConverter]::ToUInt32($data, 104)
-            }
-            30 {
-                # Windows 10
-                $stringsOffset = [BitConverter]::ToUInt32($data, 100)
-                $stringsSize = [BitConverter]::ToUInt32($data, 104)
-            }
-            31 {
-                # Windows 11
-                $stringsOffset = [BitConverter]::ToUInt32($data, 100)
-                $stringsSize = [BitConverter]::ToUInt32($data, 104)
-            }
+            17 { $stringsOffset = [BitConverter]::ToUInt32($data, 100); $stringsSize = [BitConverter]::ToUInt32($data, 104) }
+            23 { $stringsOffset = [BitConverter]::ToUInt32($data, 100); $stringsSize = [BitConverter]::ToUInt32($data, 104) }
+            26 { $stringsOffset = [BitConverter]::ToUInt32($data, 100); $stringsSize = [BitConverter]::ToUInt32($data, 104) }
+            30 { $stringsOffset = [BitConverter]::ToUInt32($data, 100); $stringsSize = [BitConverter]::ToUInt32($data, 104) }
+            31 { $stringsOffset = [BitConverter]::ToUInt32($data, 100); $stringsSize = [BitConverter]::ToUInt32($data, 104) }
             default {
                 Write-Warning "Unknown prefetch version $version for: $FilePath"
-                # Try default offsets anyway
                 $stringsOffset = [BitConverter]::ToUInt32($data, 100)
                 $stringsSize = [BitConverter]::ToUInt32($data, 104)
             }
         }
-        
         if ($script:DebugMode) {
             Write-Host "  [DEBUG] Strings offset: $stringsOffset" -ForegroundColor Magenta
             Write-Host "  [DEBUG] Strings size: $stringsSize" -ForegroundColor Magenta
         }
-        
-        # Validate offsets
         if ($stringsOffset -eq 0 -or $stringsSize -eq 0) {
             Write-Warning "Invalid string section offsets: $FilePath"
             return @()
         }
-        
         if ($stringsOffset -ge $data.Length -or ($stringsOffset + $stringsSize) -gt $data.Length) {
             Write-Warning "String section out of bounds: $FilePath (offset: $stringsOffset, size: $stringsSize, data: $($data.Length))"
             return @()
         }
-        
         $filenames = @()
         $pos = $stringsOffset
         $endPos = $stringsOffset + $stringsSize
-        
         while ($pos -lt $endPos -and $pos -lt $data.Length - 2) {
             $nullPos = $pos
             while ($nullPos -lt $data.Length - 1) {
@@ -496,7 +383,6 @@ function Get-SystemIndexes {
                 }
                 $nullPos += 2
             }
-            
             if ($nullPos -gt $pos) {
                 $strLen = $nullPos - $pos
                 if ($strLen -gt 0 -and $strLen -lt 2048) {
@@ -509,16 +395,12 @@ function Get-SystemIndexes {
                     catch { }
                 }
             }
-            
             $pos = $nullPos + 2
-            
             if ($filenames.Count -gt 1000) { break }
         }
-        
         if ($script:DebugMode) {
             Write-Host "  [DEBUG] Extracted $($filenames.Count) filenames" -ForegroundColor Magenta
         }
-        
         return $filenames
     }
     catch {
@@ -537,11 +419,9 @@ function Test-FileInSizeRange {
         [long]$MinBytes = 200KB,
         [long]$MaxBytes = 15MB
     )
-    
     if (-not (Test-Path $Path -PathType Leaf)) {
         return $false
     }
-    
     try {
         $size = (Get-Item $Path -ErrorAction Stop).Length
         return ($size -ge $MinBytes -and $size -le $MaxBytes)
@@ -582,7 +462,6 @@ $script:ClassPatterns = @(
 
 function ConvertHex-ToBytes {
     param([string]$hexString)
-    
     $bytes = New-Object byte[] ($hexString.Length / 2)
     for ($i = 0; $i -lt $hexString.Length; $i += 2) {
         $bytes[$i / 2] = [Convert]::ToByte($hexString.Substring($i, 2), 16)
@@ -595,10 +474,8 @@ function Search-BytePattern {
         [byte[]]$data,
         [byte[]]$pattern
     )
-    
     $patternLength = $pattern.Length
     $dataLength = $data.Length
-    
     for ($i = 0; $i -le ($dataLength - $patternLength); $i++) {
         $match = $true
         for ($j = 0; $j -lt $patternLength; $j++) {
@@ -619,32 +496,25 @@ function Search-ClassPattern {
         [byte[]]$data,
         [string]$className
     )
-    
     $classBytes = [System.Text.Encoding]::ASCII.GetBytes($className)
     return Search-BytePattern -data $data -pattern $classBytes
 }
 
 function Test-ZipMagicBytes {
     param([string]$Path)
-    
     try {
         $fileStream = [System.IO.File]::OpenRead($Path)
         $reader = New-Object System.IO.BinaryReader($fileStream)
-        
         if ($fileStream.Length -lt 2) {
             $reader.Close()
             $fileStream.Close()
             return $false
         }
-        
         $byte1 = $reader.ReadByte()
         $byte2 = $reader.ReadByte()
-        
         $reader.Close()
         $fileStream.Close()
-        
         return ($byte1 -eq 0x50 -and $byte2 -eq 0x4B)
-        
     } catch {
         return $false
     }
@@ -652,35 +522,25 @@ function Test-ZipMagicBytes {
 
 function Find-SingleLetterClasses {
     param([string]$Path)
-    
     $singleLetterClasses = @()
-    
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        
         $jar = [System.IO.Compression.ZipFile]::OpenRead($Path)
-        
         foreach ($entry in $jar.Entries) {
             if ($entry.FullName -like "*.class") {
                 $className = $entry.FullName
-                
                 $parts = $className -split '/'
                 $filename = $parts[-1]
-                
                 $classNameOnly = $filename -replace '\.class$', ''
-                
                 if ($classNameOnly -match '^[a-zA-Z]$') {
                     $fullPath = ($parts[0..($parts.Length-2)] -join '/') + '/' + $classNameOnly
                     $singleLetterClasses += $fullPath
                 }
             }
         }
-        
         $jar.Dispose()
-        
     } catch {
     }
-    
     return $singleLetterClasses
 }
 
@@ -689,7 +549,6 @@ function Test-DoomsdayClient {
         [Parameter(Mandatory=$true)]
         [string]$Path
     )
-    
     $result = [PSCustomObject]@{
         IsDetected = $false
         Confidence = "NONE"
@@ -699,49 +558,37 @@ function Test-DoomsdayClient {
         IsRenamedJar = $false
         Error = $null
     }
-    
     if (-not (Test-Path $Path -PathType Leaf)) {
         $result.Error = "File not found"
         return $result
     }
-    
     try {
         $fileExtension = [System.IO.Path]::GetExtension($Path).ToLower()
-        
         $hasPKHeader = Test-ZipMagicBytes -Path $Path
-        
         if ($hasPKHeader -and $fileExtension -ne ".jar") {
             $result.IsRenamedJar = $true
             $result.IsDetected = $true
             $result.Confidence = "HIGH"
         }
-        
         if (-not $hasPKHeader) {
             $result.Error = "File is not a JAR/ZIP file (missing PK header)"
             return $result
         }
-        
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        
         $jar = [System.IO.Compression.ZipFile]::OpenRead($Path)
-        
         $classFiles = $jar.Entries | Where-Object { $_.FullName -like "*.class" }
         $classCount = $classFiles.Count
-        
         if ($classCount -gt 30) {
             $jar.Dispose()
             $result.Error = "Skipped: Too many classes ($classCount) - likely legitimate library"
             return $result
         }
-        
         if ($classCount -eq 0) {
             $jar.Dispose()
             $result.Error = "No .class files found in JAR"
             return $result
         }
-        
         $allBytes = @()
-        
         foreach ($entry in $classFiles) {
             $stream = $entry.Open()
             $reader = New-Object System.IO.BinaryReader($stream)
@@ -750,29 +597,22 @@ function Test-DoomsdayClient {
             $reader.Close()
             $stream.Close()
         }
-        
         $jar.Dispose()
-        
         foreach ($pattern in $script:BytePatterns) {
             $patternBytes = ConvertHex-ToBytes -hexString $pattern.Bytes
-            
             if (Search-BytePattern -data $allBytes -pattern $patternBytes) {
                 $result.BytePatternMatches += $pattern.Name
             }
         }
-        
         foreach ($className in $script:ClassPatterns) {
             if (Search-ClassPattern -data $allBytes -className $className) {
                 $result.ClassNameMatches += $className
             }
         }
-        
         $result.SingleLetterClasses = Find-SingleLetterClasses -Path $Path
-        
         $byteMatchCount = $result.BytePatternMatches.Count
         $classMatchCount = $result.ClassNameMatches.Count
         $singleLetterCount = $result.SingleLetterClasses.Count
-        
         if ($byteMatchCount -ge 2) {
             $result.IsDetected = $true
             $result.Confidence = "HIGH"
@@ -793,15 +633,12 @@ function Test-DoomsdayClient {
             $result.IsDetected = $true
             $result.Confidence = "LOW"
         }
-        
         if ($result.IsRenamedJar -and $result.Confidence -eq "NONE") {
             $result.Confidence = "MEDIUM"
         }
-        
     } catch {
         $result.Error = $_.Exception.Message
     }
-    
     return $result
 }
 
@@ -809,11 +646,8 @@ function Start-DoomsdayScan {
     param(
         [switch]$Debug
     )
-    
     $script:DebugMode = $Debug
-    
     Show-Banner
-    
     if (-not (Test-Administrator)) {
         Write-Host ""
         Write-Host "ERROR: " -ForegroundColor Red -NoNewline
@@ -823,11 +657,8 @@ function Start-DoomsdayScan {
         Write-Host ""
         return
     }
-    
-    # Detect Windows version
     $osVersion = [System.Environment]::OSVersion.Version
     Write-Host "[*] Windows Version: $($osVersion.Major).$($osVersion.Minor) Build $($osVersion.Build)" -ForegroundColor Cyan
-    
     if ($osVersion.Major -eq 10) {
         if ($osVersion.Build -ge 22000) {
             Write-Host "[*] Detected: Windows 11" -ForegroundColor Green
@@ -836,19 +667,14 @@ function Start-DoomsdayScan {
         }
     }
     Write-Host ""
-    
     Write-Host "[*] Extracting file indexes..." -ForegroundColor Cyan
     Write-Host ""
-    
     $systemPath = "C:\Windows\" + "Pre" + "fetch"
-    
     if (-not (Test-Path $systemPath)) {
         Write-Host "[!] Prefetch directory not found: $systemPath" -ForegroundColor Red
         return
     }
-    
     $javaFiles = Get-ChildItem -Path $systemPath -Filter "JAVA*.EXE-*.pf" -ErrorAction SilentlyContinue
-    
     if ($javaFiles.Count -eq 0) {
         Write-Host "[!] No JAVA prefetch files found in $systemPath" -ForegroundColor Yellow
         Write-Host "[*] This could mean:" -ForegroundColor Yellow
@@ -857,51 +683,39 @@ function Start-DoomsdayScan {
         Write-Host "    - Prefetch is disabled" -ForegroundColor Gray
         return
     }
-    
     Write-Host "[+] Found $($javaFiles.Count) JAVA prefetch file(s)" -ForegroundColor Green
     Write-Host ""
-    
     $allJarPaths = @()
     $fileMetadata = @{}
     $processedFiles = 0
     $successfulParsing = 0
-    
     foreach ($sysFile in $javaFiles) {
         $processedFiles++
         Write-Progress -Activity "Extracting Indexes" `
                       -Status "Processing file $processedFiles of $($javaFiles.Count)" `
                       -PercentComplete (($processedFiles / $javaFiles.Count) * 100)
-        
         if ($script:DebugMode) {
             Write-Host ""
             Write-Host "[DEBUG] ======================================" -ForegroundColor Magenta
         }
-        
         $indexes = Get-SystemIndexes -FilePath $sysFile.FullName
-        
         if ($indexes.Count -eq 0) {
             if ($script:DebugMode) {
                 Write-Host "  [DEBUG] No indexes extracted from $($sysFile.Name)" -ForegroundColor Yellow
             }
             continue
         }
-        
         $successfulParsing++
-        
         if ($script:DebugMode) {
             Write-Host "  [DEBUG] Successfully extracted $($indexes.Count) paths" -ForegroundColor Green
         }
-        
         $indexNum = 0
         foreach ($index in $indexes) {
             $indexNum++
-            
-            # Strip volume GUID if present, assume C: drive initially
             if ($index -match '\\VOLUME\{[^\}]+\}\\(.*)$') {
                 $relativePath = $Matches[1]
                 $assumedPath = "C:\$relativePath"
                 $allJarPaths += $assumedPath
-                
                 if (-not $fileMetadata.ContainsKey($assumedPath)) {
                     $fileMetadata[$assumedPath] = @{
                         SourceFile = $sysFile.Name
@@ -911,9 +725,7 @@ function Start-DoomsdayScan {
                 }
             }
             else {
-                # No volume GUID, use path as-is
                 $allJarPaths += $index
-                
                 if (-not $fileMetadata.ContainsKey($index)) {
                     $fileMetadata[$index] = @{
                         SourceFile = $sysFile.Name
@@ -924,13 +736,10 @@ function Start-DoomsdayScan {
             }
         }
     }
-    
     Write-Progress -Activity "Extracting Indexes" -Completed
-    
     Write-Host ""
     Write-Host "[+] Prefetch files successfully parsed: $successfulParsing / $processedFiles" -ForegroundColor Green
     Write-Host "[+] Total file paths extracted: $($allJarPaths.Count)" -ForegroundColor Green
-    
     if ($allJarPaths.Count -eq 0) {
         Write-Host ""
         Write-Host "[!] No file paths could be extracted from prefetch files" -ForegroundColor Yellow
@@ -942,46 +751,31 @@ function Start-DoomsdayScan {
         Write-Host "    .\doomsday-scanner-usn.ps1 -Debug" -ForegroundColor White
         return
     }
-    
     $uniquePaths = $allJarPaths | Select-Object -Unique
     Write-Host "[+] Unique files to scan: $($uniquePaths.Count)" -ForegroundColor Green
     Write-Host ""
-    
     Write-Host "[*] Checking file existence across all drives..." -ForegroundColor Cyan
     Write-Host ""
-    
-    $existingPaths = @{}  # Store path -> actual location
+    $existingPaths = @{}
     $trulyMissingPaths = @()
     $checkCount = 0
     $outsideRangeCount = 0
     $resolvedToDifferentDrive = 0
-    
-    # Get all available drives
     $allDrives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' } | ForEach-Object { $_.Root.Substring(0, 1) }
-    
     foreach ($path in $uniquePaths) {
         $checkCount++
-        
         $foundPath = $null
-        
-        # First, check if file exists at the given path (usually C:)
         if (Test-Path $path -PathType Leaf) {
             $foundPath = $path
         }
         else {
-            # File doesn't exist at assumed location
-            # Try to find it on other drives
             if ($path -match '^[A-Z]:\\(.*)$') {
                 $relativePath = $Matches[1]
-                
-                # Try each drive
                 foreach ($drive in $allDrives) {
                     $testPath = "$drive`:\$relativePath"
-                    
                     if (Test-Path $testPath -PathType Leaf) {
                         $foundPath = $testPath
                         $resolvedToDifferentDrive++
-                        
                         if ($script:DebugMode) {
                             Write-Host "  [DEBUG] Found on different drive: $testPath (assumed $path)" -ForegroundColor Cyan
                         }
@@ -990,11 +784,8 @@ function Start-DoomsdayScan {
                 }
             }
         }
-        
         if ($foundPath) {
-            # File exists somewhere
             $fileSize = (Get-Item $foundPath -ErrorAction SilentlyContinue).Length
-            
             if ($fileSize -ge 200KB -and $fileSize -le 15MB) {
                 $existingPaths[$path] = $foundPath
             } else {
@@ -1006,13 +797,10 @@ function Start-DoomsdayScan {
             }
         }
         else {
-            # File doesn't exist on ANY drive - truly missing
             $trulyMissingPaths += $path
         }
     }
-    
     $missingCount = $trulyMissingPaths.Count
-    
     Write-Host ""
     Write-Host "[+] Total paths checked: $checkCount" -ForegroundColor Cyan
     Write-Host "[+] Files found and in size range (200KB-15MB): $($existingPaths.Count)" -ForegroundColor Green
@@ -1022,39 +810,28 @@ function Start-DoomsdayScan {
     Write-Host "[!] Files outside size range: $outsideRangeCount" -ForegroundColor Gray
     Write-Host "[!] Files truly missing (not on any drive): $missingCount" -ForegroundColor Yellow
     Write-Host ""
-    
-    # Show truly missing files (filter out temp files, focus on JARs/EXEs)
     if ($missingCount -gt 0) {
         Write-Host "[*] Truly missing files (deleted from all drives):" -ForegroundColor Cyan
         Write-Host ""
-        
         $displayedCount = 0
         foreach ($missingPath in $trulyMissingPaths) {
-            # Skip temp files and Java cleanup
-            # Only skip JNA####.DLL patterns, not ALL .DLLs
             if ($missingPath -match '\\TEMP\\|\\TMP\\|HSPERFDATA|\.TMP$|JNA\d+\.DLL') {
                 continue
             }
-            
-            # Show JAR, EXE, and DLL files
             if ($missingPath -notmatch '\.(JAR|EXE|DLL)$') {
                 continue
             }
-            
             $displayedCount++
             Write-Host "  [DELETED] " -ForegroundColor Yellow -NoNewline
             Write-Host $missingPath -ForegroundColor White
             Write-Host "      Source: " -NoNewline
             Write-Host "$($fileMetadata[$missingPath].SourceFile)" -ForegroundColor Cyan
         }
-        
         if ($displayedCount -eq 0) {
             Write-Host "  No suspicious deletions found (only temp files deleted)" -ForegroundColor Green
         }
-        
         Write-Host ""
     }
-    
     if ($existingPaths.Count -eq 0) {
         Write-Host "[!] No files exist to scan" -ForegroundColor Yellow
         Write-Host "[*] All extracted paths point to files that either:" -ForegroundColor Yellow
@@ -1062,36 +839,26 @@ function Start-DoomsdayScan {
         Write-Host "    - Are outside the 200KB-15MB size range" -ForegroundColor Gray
         return
     }
-    
     Write-Host "[*] Scanning files for Doomsday Client..." -ForegroundColor Cyan
     Write-Host ""
-    
     $detections = @()
     $scanned = 0
     $skipped = 0
-    
     foreach ($assumedPath in $existingPaths.Keys) {
         $actualPath = $existingPaths[$assumedPath]
         $scanned++
-        
         $filename = [System.IO.Path]::GetFileName($actualPath)
-        
         Write-Progress -Activity "Scanning for Doomsday Client" `
                       -Status "[$scanned/$($existingPaths.Count)]" `
                       -PercentComplete (($scanned / $existingPaths.Count) * 100)
-        
         Write-Host "`r[$scanned/$($existingPaths.Count)]" -NoNewline -ForegroundColor Cyan
-        
         try {
             $result = Test-DoomsdayClient -Path $actualPath
-            
             if ($result.Error -and $result.Error -like "Skipped:*") {
                 $skipped++
             }
-            
             if ($result.IsDetected) {
                 Write-Host "`r                              `r" -NoNewline
-                
                 $detections += [PSCustomObject]@{
                     Path = $actualPath
                     SourceFile = $fileMetadata[$assumedPath].SourceFile
@@ -1102,17 +869,14 @@ function Start-DoomsdayScan {
                     ClassMatches = $result.ClassNameMatches.Count
                     SingleLetterClasses = $result.SingleLetterClasses.Count
                 }
-                
                 Write-Host "[!] DETECTION: " -ForegroundColor Red -NoNewline
                 Write-Host $actualPath
                 Write-Host "    Confidence: " -NoNewline
-                
                 switch ($result.Confidence) {
                     "HIGH"   { Write-Host "HIGH" -ForegroundColor Red }
                     "MEDIUM" { Write-Host "MEDIUM" -ForegroundColor Yellow }
                     "LOW"    { Write-Host "LOW" -ForegroundColor Gray }
                 }
-                
                 if ($result.IsRenamedJar) {
                     Write-Host "    Renamed JAR detected!" -ForegroundColor Red
                 }
@@ -1127,12 +891,9 @@ function Start-DoomsdayScan {
             Write-Host "Error scanning $filename : $_" -ForegroundColor Red
         }
     }
-    
     Write-Host "`r                              `r" -NoNewline
-    
     Write-Progress -Activity "Scanning for Doomsday Client" -Completed
     Write-Host ""
-    
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "SCAN COMPLETE" -ForegroundColor Cyan
@@ -1142,31 +903,24 @@ function Start-DoomsdayScan {
     Write-Host "Files exist: $($existingPaths.Count)"
     Write-Host "Files scanned: $scanned"
     Write-Host "Files skipped (>30 classes): $skipped" -ForegroundColor Gray
-    
     Write-Host "Doomsday Client detections: " -NoNewline
-    
     if ($detections.Count -gt 0) {
         Write-Host $detections.Count -ForegroundColor Red
-        
         Write-Host ""
         Write-Host "Detections by confidence:" -ForegroundColor Yellow
         $high = ($detections | Where-Object { $_.Confidence -eq "HIGH" }).Count
         $medium = ($detections | Where-Object { $_.Confidence -eq "MEDIUM" }).Count
         $low = ($detections | Where-Object { $_.Confidence -eq "LOW" }).Count
-        
         if ($high -gt 0) { Write-Host "  HIGH: $high" -ForegroundColor Red }
         if ($medium -gt 0) { Write-Host "  MEDIUM: $medium" -ForegroundColor Yellow }
         if ($low -gt 0) { Write-Host "  LOW: $low" -ForegroundColor Gray }
-        
         Write-Host ""
         Write-Host "DOOMSDAY CLIENT DETECTED ON THIS SYSTEM!" -ForegroundColor Red
-        
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Red
         Write-Host "DETECTION DETAILS" -ForegroundColor Red
         Write-Host "========================================" -ForegroundColor Red
         Write-Host ""
-        
         $detectionNum = 1
         foreach ($detection in $detections) {
             Write-Host "[$detectionNum] " -NoNewline -ForegroundColor Red
@@ -1176,51 +930,41 @@ function Start-DoomsdayScan {
             Write-Host "    Index Number: " -NoNewline
             Write-Host "#$($detection.IndexNumber)" -ForegroundColor Cyan
             Write-Host "    Confidence: " -NoNewline
-            
             switch ($detection.Confidence) {
                 "HIGH"   { Write-Host "HIGH" -ForegroundColor Red }
                 "MEDIUM" { Write-Host "MEDIUM" -ForegroundColor Yellow }
                 "LOW"    { Write-Host "LOW" -ForegroundColor Gray }
             }
-            
             if ($detection.IsRenamedJar) {
                 Write-Host "    Renamed JAR: " -NoNewline
                 Write-Host "YES" -ForegroundColor Red
             }
-            
             if ($detection.BytePatterns -gt 0) {
                 Write-Host "    Byte Patterns: " -NoNewline
                 Write-Host $detection.BytePatterns -ForegroundColor Red
             }
-            
             if ($detection.ClassMatches -gt 0) {
                 Write-Host "    Class Matches: " -NoNewline
                 Write-Host $detection.ClassMatches -ForegroundColor Yellow
             }
-            
             if ($detection.SingleLetterClasses -gt 0) {
                 Write-Host "    Single-Letter Classes: " -NoNewline
                 Write-Host $detection.SingleLetterClasses -ForegroundColor Yellow
             }
-            
             Write-Host ""
             $detectionNum++
         }
-        
     } else {
         Write-Host "0" -ForegroundColor Green
         Write-Host ""
         Write-Host "No Doomsday Client detected!" -ForegroundColor Green
     }
-    
     Write-Host ""
-    
     if ($script:DebugMode) {
         Write-Host "[DEBUG MODE] Scan completed with debugging enabled" -ForegroundColor Magenta
     }
 }
 
-# Run the scan
 Start-DoomsdayScan
 '@
         $tempScript = Join-Path $env:TEMP "DoomsdayFinder.ps1"
@@ -1236,7 +980,6 @@ Start-DoomsdayScan
 function Run-GhostClientScanner {
     Write-Log "Running Ghost Client Scanner..."
     Set-Status "Running" "Ghost Client Scanner - Scanning..." "BUSY"
-    
     try {
         $scriptContent = @'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -1352,7 +1095,6 @@ if ($mcProcess) {
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-# Suspicious patterns and strings for detection
 $suspiciousPatterns = @(
     "AimAssist", "AnchorTweaks", "AutoAnchor", "AutoCrystal", "AutoDoubleHand",
     "AutoHitCrystal", "AutoPot", "AutoTotem", "AutoArmor", "InventoryTotem",
@@ -1628,17 +1370,12 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 function Run-CyemerScanner {
     Write-Log "Starting Cyemer Scanner..."
     Set-Status "Running" "Cyemer Scanner - Scanning..." "BUSY"
-    
     try {
         $scriptContent = @'
 #Requires -Version 5.1
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "SilentlyContinue"
 
-# =========================
-# Global config / patterns
-# =========================
 $script:DebugMode = $false
 $script:RecentDeletions = @{}
 $script:USNSearched = $false
@@ -1649,12 +1386,10 @@ $script:CyemerNeedles = @(
     "CyemerClient",
     "com/slither/cyemer/Cyemer.class",
     "com/slither/cyemer/CyemerClient.class",
-
     "cyemer.client.mixins.json",
     "assets/dynamic_fps/textures/cyemer.png",
     "assets/dynamic_fps/font/cyemer.json",
     "dynamic_fps",
-
     "AimAssist",
     "TriggerBot",
     "AutoCrystal",
@@ -1680,7 +1415,6 @@ $script:CyemerNeedles = @(
     "sqlite-jdbc",
     "esp_surface.fsh",
     "esp_surface.vsh",
-
     "com/slither/cyemer/module/implementation/combat/",
     "com/slither/cyemer/module/implementation/movement/",
     "com/slither/cyemer/module/implementation/render/",
@@ -1704,9 +1438,6 @@ $script:SelfDestructKeywords = @(
     "selfdestruct", "crystal", "aim", "trigger", "esp"
 )
 
-# =========================
-# Native decompressor
-# =========================
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -1735,22 +1466,17 @@ public class NtdllDecompressor {
         if (compressed[0] != 0x4D || compressed[1] != 0x41 || compressed[2] != 0x4D) {
             return null;
         }
-
         int uncompSize = BitConverter.ToInt32(compressed, 4);
         uint wsComp, wsFrag;
         if (RtlGetCompressionWorkSpaceSize(4, out wsComp, out wsFrag) != 0) return null;
-
         IntPtr workspace = Marshal.AllocHGlobal((int)wsFrag);
         byte[] result = new byte[uncompSize];
-
         try {
             int finalSize;
             byte[] compData = new byte[compressed.Length - 8];
             Array.Copy(compressed, 8, compData, 0, compData.Length);
-
             uint status = RtlDecompressBufferEx(4, result, uncompSize,
                 compData, compData.Length, out finalSize, workspace);
-
             if (status != 0) return null;
             return result;
         }
@@ -1761,9 +1487,6 @@ public class NtdllDecompressor {
 }
 "@
 
-# =========================
-# UI helpers
-# =========================
 function Show-Banner {
     Clear-Host
     $banner = @"
@@ -1803,9 +1526,6 @@ function Test-Administrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# =========================
-# General helpers
-# =========================
 function Test-ZipMagicBytes {
     param([string]$Path)
     try {
@@ -1877,9 +1597,6 @@ function Find-SingleLetterClasses {
     return $hits
 }
 
-# =========================
-# Prefetch parsing
-# =========================
 function Get-PrefetchVersion {
     param([byte[]]$Data)
     if ($Data.Length -lt 8) { return 0 }
@@ -1890,38 +1607,30 @@ function Get-PrefetchVersion {
 
 function Get-SystemIndexes {
     param([string]$FilePath)
-
     try {
         $data = [System.IO.File]::ReadAllBytes($FilePath)
-
         $isCompressed = ($data[0] -eq 0x4D -and $data[1] -eq 0x41 -and $data[2] -eq 0x4D)
         if ($isCompressed) {
             $data = [NtdllDecompressor]::Decompress($data)
             if ($null -eq $data) { return @() }
         }
-
         if ($data.Length -lt 108) { return @() }
         $sig = [System.Text.Encoding]::ASCII.GetString($data, 4, 4)
         if ($sig -ne "SCCA") { return @() }
-
         $version = Get-PrefetchVersion -Data $data
         $stringsOffset = [BitConverter]::ToUInt32($data, 100)
         $stringsSize   = [BitConverter]::ToUInt32($data, 104)
-
         if ($stringsOffset -eq 0 -or $stringsSize -eq 0) { return @() }
         if ($stringsOffset -ge $data.Length -or ($stringsOffset + $stringsSize) -gt $data.Length) { return @() }
-
         $filenames = @()
         $pos = $stringsOffset
         $endPos = $stringsOffset + $stringsSize
-
         while ($pos -lt $endPos -and $pos -lt ($data.Length - 2)) {
             $nullPos = $pos
             while ($nullPos -lt ($data.Length - 1)) {
                 if ($data[$nullPos] -eq 0 -and $data[$nullPos + 1] -eq 0) { break }
                 $nullPos += 2
             }
-
             if ($nullPos -gt $pos) {
                 $strLen = $nullPos - $pos
                 if ($strLen -gt 0 -and $strLen -lt 4096) {
@@ -1931,43 +1640,32 @@ function Get-SystemIndexes {
                     } catch {}
                 }
             }
-
             $pos = $nullPos + 2
             if ($filenames.Count -gt 3000) { break }
         }
-
         return $filenames
     } catch {
         return @()
     }
 }
 
-# =========================
-# USN Journal
-# =========================
 function Get-RecentDeletionsFromUSN {
     param(
         [string[]]$DriveLetters,
         [int]$MinutesBack = 90
     )
-
     if ($script:USNSearched) { return $script:RecentDeletions }
-
     $allRecent = @{}
     $cutoff = (Get-Date).AddMinutes(-$MinutesBack)
-
     foreach ($drive in $DriveLetters) {
         try {
             $usnOutput = & fsutil usn readjournal "$drive`:" 2>$null
             if ($LASTEXITCODE -ne 0 -or -not $usnOutput) { continue }
-
             $currentFile = ""
             $currentTime = $null
             $currentReason = ""
-
             foreach ($line in $usnOutput) {
                 if ([string]::IsNullOrWhiteSpace($line)) { continue }
-
                 if ($line -match 'File name\s+:\s*(.+)$') {
                     $currentFile = $Matches[1].Trim()
                 }
@@ -1993,7 +1691,6 @@ function Get-RecentDeletionsFromUSN {
             }
         } catch {}
     }
-
     $script:RecentDeletions = $allRecent
     $script:USNSearched = $true
     return $allRecent
@@ -2001,30 +1698,23 @@ function Get-RecentDeletionsFromUSN {
 
 function Test-RecentlyDeleted {
     param([string]$FilePath)
-
     if ($script:RecentDeletions.ContainsKey($FilePath)) {
         return $script:RecentDeletions[$FilePath]
     }
-
     $fileName = [System.IO.Path]::GetFileName($FilePath)
     foreach ($key in $script:RecentDeletions.Keys) {
         if ($key -like "*\$fileName") {
             return $script:RecentDeletions[$key]
         }
     }
-
     return $null
 }
 
-# =========================
-# Cyemer detection
-# =========================
 function Test-CyemerClient {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path
     )
-
     $result = [PSCustomObject]@{
         IsDetected          = $false
         Confidence          = "NONE"
@@ -2035,34 +1725,26 @@ function Test-CyemerClient {
         IsRenamedJar        = $false
         Error               = $null
     }
-
     if (-not (Test-Path $Path -PathType Leaf)) {
         $result.Error = "File not found"
         return $result
     }
-
     try {
         $ext = [System.IO.Path]::GetExtension($Path).ToLower()
         $hasPK = Test-ZipMagicBytes -Path $Path
-
         if ($hasPK -and $ext -ne ".jar") {
             $result.IsRenamedJar = $true
         }
-
         if (-not $hasPK) {
             $result.Error = "Not a ZIP/JAR"
             return $result
         }
-
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $jar = [System.IO.Compression.ZipFile]::OpenRead($Path)
-
         [System.Collections.Generic.List[byte]]$allBytesList = New-Object 'System.Collections.Generic.List[byte]'
-
         foreach ($entry in $jar.Entries) {
             $entryNameBytes = [System.Text.Encoding]::ASCII.GetBytes($entry.FullName)
             [void]$allBytesList.AddRange($entryNameBytes)
-
             if ($entry.FullName -like "*.class" -or
                 $entry.FullName -like "*.json"  -or
                 $entry.FullName -like "*.png"   -or
@@ -2070,7 +1752,6 @@ function Test-CyemerClient {
                 $entry.FullName -like "*.vsh"   -or
                 $entry.FullName -like "META-INF/MANIFEST.MF" -or
                 $entry.FullName -like "fabric.mod.json") {
-
                 try {
                     $stream = $entry.Open()
                     $reader = New-Object System.IO.BinaryReader($stream)
@@ -2081,28 +1762,22 @@ function Test-CyemerClient {
                 } catch {}
             }
         }
-
         $jar.Dispose()
-
         $allBytes = $allBytesList.ToArray()
-
         foreach ($needle in $script:CyemerNeedles) {
             $needleBytes = [System.Text.Encoding]::ASCII.GetBytes($needle)
             if (Search-BytePattern -Data $allBytes -Pattern $needleBytes) {
                 $result.Matches += $needle
             }
         }
-
         foreach ($needle in $script:StrongNeedles) {
             $needleBytes = [System.Text.Encoding]::ASCII.GetBytes($needle)
             if (Search-BytePattern -Data $allBytes -Pattern $needleBytes) {
                 $result.StrongMatchCount++
             }
         }
-
         $result.SingleLetterClasses = Find-SingleLetterClasses -Path $Path
         $result.MatchCount = $result.Matches.Count
-
         if ($result.StrongMatchCount -ge 3) {
             $result.IsDetected = $true
             $result.Confidence = "HIGH"
@@ -2123,7 +1798,6 @@ function Test-CyemerClient {
             $result.IsDetected = $true
             $result.Confidence = "LOW"
         }
-
         if ($result.IsRenamedJar -and $result.IsDetected -and $result.Confidence -eq "LOW") {
             $result.Confidence = "MEDIUM"
         }
@@ -2131,13 +1805,9 @@ function Test-CyemerClient {
     catch {
         $result.Error = $_.Exception.Message
     }
-
     return $result
 }
 
-# =========================
-# Self-destruct suspicion
-# =========================
 function Test-SelfDestructSuspicion {
     param(
         [Parameter(Mandatory = $true)]
@@ -2145,7 +1815,6 @@ function Test-SelfDestructSuspicion {
         [string]$SourceFile = "",
         $RecentDeletion = $null
     )
-
     $result = [PSCustomObject]@{
         IsSuspicious = $false
         Confidence   = "NONE"
@@ -2155,56 +1824,45 @@ function Test-SelfDestructSuspicion {
         Extension    = [System.IO.Path]::GetExtension($Path).ToLower()
         Path         = $Path
     }
-
     $lowerPath = $Path.ToLower()
     $lowerName = $result.FileName.ToLower()
-
     if ($result.Extension -in @(".jar", ".exe", ".dll", ".bin", ".dat")) {
         $result.Score += 2
         $result.Reasons += "Java-referenced executable/container extension"
     }
-
     if ($result.Extension -ne ".jar" -and (Test-ZipMagicBytes -Path $Path)) {
         $result.Score += 4
         $result.Reasons += "Renamed JAR-style payload"
     }
-
     $keywordHits = @($script:SelfDestructKeywords | Where-Object { $lowerName -like "*$_*" })
     if ($keywordHits.Count -gt 0) {
         $result.Score += [Math]::Min(4, $keywordHits.Count + 1)
         $result.Reasons += "Suspicious filename keywords: $($keywordHits -join ', ')"
     }
-
     if ($lowerPath -match '\\downloads\\|\\desktop\\|\\documents\\|\\appdata\\roaming\\|\\appdata\\local\\|\\temp\\|\\tmp\\|\\minecraft\\|\\mods\\|\\versions\\|\\libraries\\') {
         $result.Score += 2
         $result.Reasons += "Stored in user/mod/temp-related path"
     }
-
     if ($SourceFile -match '^JAVA.*\.pf$') {
         $result.Score += 2
         $result.Reasons += "Referenced by Java prefetch"
     }
-
     if ($RecentDeletion) {
         $result.Score += 3
         $result.Reasons += "Recently removed or modified according to USN Journal"
-
         if ($RecentDeletion.Reason -match 'FILE_DELETE|CLOSE|RENAME|DATA_TRUNCATION') {
             $result.Score += 2
             $result.Reasons += "USN reason suggests delete/rename/truncation"
         }
     }
-
     if ($lowerPath -match '\\minecraft\\|\\mods\\|\\versions\\|\\libraries\\') {
         $result.Score += 3
         $result.Reasons += "Missing Java artifact from suspicious Minecraft-related path"
     }
-
     if ($lowerName -match '^(cyemer|loader|client|ghost|inject|launch|mod|hack|cheat)[a-z0-9_\-]*\.(jar|exe|dll|bin|dat)$') {
         $result.Score += 2
         $result.Reasons += "Payload-style filename"
     }
-
     if ($result.Score -ge 10) {
         $result.IsSuspicious = $true
         $result.Confidence = "HIGH"
@@ -2217,13 +1875,9 @@ function Test-SelfDestructSuspicion {
         $result.IsSuspicious = $true
         $result.Confidence = "LOW"
     }
-
     return $result
 }
 
-# =========================
-# Views
-# =========================
 function Show-Summary {
     param(
         [hashtable]$Stats,
@@ -2231,21 +1885,17 @@ function Show-Summary {
         [array]$DeletedFiles,
         [array]$SelfDestructFindings
     )
-
     Show-Banner
     Write-Host "  SUMMARY" -ForegroundColor Cyan
     Write-Separator
-
     $high = ($Detections | Where-Object { $_.Confidence -eq "HIGH" }).Count
     $medium = ($Detections | Where-Object { $_.Confidence -eq "MEDIUM" }).Count
     $low = ($Detections | Where-Object { $_.Confidence -eq "LOW" }).Count
-
     if ($Detections.Count -gt 0) {
         Write-Stat "Scan Status" "DETECTIONS FOUND" Red
     } else {
         Write-Stat "Scan Status" "CLEAN" Green
     }
-
     Write-Stat "Windows Version" $Stats.WindowsVersion White
     Write-Stat "Java Prefetch Files" "$($Stats.JavaPrefetchCount)" White
     Write-Stat "Parsed Prefetch Files" "$($Stats.SuccessfulParsing) / $($Stats.ProcessedFiles)" White
@@ -2257,7 +1907,6 @@ function Show-Summary {
     Write-Stat "Missing Files" "$($Stats.MissingFiles)" $(if ($Stats.MissingFiles -gt 0) { "Yellow" } else { "Green" })
     Write-Stat "Detections" "$($Detections.Count)" $(if ($Detections.Count -gt 0) { "Red" } else { "Green" })
     Write-Stat "Self-Destruct Hits" "$($SelfDestructFindings.Count)" $(if ($SelfDestructFindings.Count -gt 0) { "Red" } else { "Green" })
-
     Write-Host ""
     Write-SubSeparator
     Write-Host "  CONFIDENCE BREAKDOWN" -ForegroundColor White
@@ -2271,16 +1920,13 @@ function Show-Summary {
 
 function Show-Detections {
     param([array]$Detections)
-
     Show-Banner
     Write-Host "  DETECTIONS" -ForegroundColor Cyan
     Write-Separator
-
     if ($Detections.Count -eq 0) {
         Write-Host "  Geen Cyemer-detecties gevonden." -ForegroundColor Green
         return
     }
-
     $i = 1
     foreach ($d in $Detections) {
         Write-Host "  [$i] $($d.Path)" -ForegroundColor White
@@ -2303,16 +1949,13 @@ function Show-Detections {
 
 function Show-DeletedFiles {
     param([array]$DeletedFiles)
-
     Show-Banner
     Write-Host "  DELETED / MISSING FILES" -ForegroundColor Cyan
     Write-Separator
-
     if ($DeletedFiles.Count -eq 0) {
         Write-Host "  Geen verdachte deleted/missing files gevonden." -ForegroundColor Green
         return
     }
-
     $i = 1
     foreach ($f in $DeletedFiles) {
         Write-Host "  [$i] $($f.Path)" -ForegroundColor White
@@ -2330,16 +1973,13 @@ function Show-DeletedFiles {
 
 function Show-SelfDestruct {
     param([array]$Findings)
-
     Show-Banner
     Write-Host "  SELF-DESTRUCT ANALYSIS" -ForegroundColor Cyan
     Write-Separator
-
     if ($Findings.Count -eq 0) {
         Write-Host "  Geen duidelijke self-destruct indicators gevonden." -ForegroundColor Green
         return
     }
-
     $i = 1
     foreach ($item in $Findings) {
         Write-Host "  [$i] $($item.Path)" -ForegroundColor White
@@ -2375,7 +2015,6 @@ function Show-Dashboard {
         [array]$DeletedFiles,
         [array]$SelfDestructFindings
     )
-
     $tab = "1"
     while ($true) {
         switch ($tab) {
@@ -2385,7 +2024,6 @@ function Show-Dashboard {
             "4" { Show-SelfDestruct -Findings $SelfDestructFindings }
             default { Show-Summary -Stats $Stats -Detections $Detections -DeletedFiles $DeletedFiles -SelfDestructFindings $SelfDestructFindings }
         }
-
         $choice = Read-Choice
         switch ($choice) {
             "1" { $tab = "1" }
@@ -2397,58 +2035,44 @@ function Show-Dashboard {
     }
 }
 
-# =========================
-# Main scan flow
-# =========================
 function Start-CyemerScan {
     param([switch]$Debug)
-
     $script:DebugMode = $Debug
     Show-Banner
-
     if (-not (Test-Administrator)) {
         Write-Host "  ERROR: Administrator privileges required." -ForegroundColor Red
         Write-Host ""
         Write-Host "  Start PowerShell as Administrator." -ForegroundColor Yellow
         return
     }
-
     $osVersion = [System.Environment]::OSVersion.Version
     Write-Host "[*] Windows Version: $($osVersion.Major).$($osVersion.Minor) Build $($osVersion.Build)" -ForegroundColor Cyan
     Write-Host ""
-
     $prefetchPath = "C:\Windows\Prefetch"
     if (-not (Test-Path $prefetchPath)) {
         Write-Host "[!] Prefetch directory not found." -ForegroundColor Red
         return
     }
-
     $javaFiles = Get-ChildItem -Path $prefetchPath -Filter "JAVA*.EXE-*.pf" -ErrorAction SilentlyContinue
     if ($javaFiles.Count -eq 0) {
         Write-Host "[!] No JAVA prefetch files found." -ForegroundColor Yellow
         return
     }
-
     Write-Host "[+] Found $($javaFiles.Count) JAVA prefetch file(s)" -ForegroundColor Green
     Write-Host ""
-
     $allPaths = @()
     $fileMetadata = @{}
     $processedFiles = 0
     $successfulParsing = 0
-
     foreach ($pf in $javaFiles) {
         $processedFiles++
         Write-Progress -Activity "Extracting Indexes" -Status "Processing $processedFiles / $($javaFiles.Count)" -PercentComplete (($processedFiles / $javaFiles.Count) * 100)
-
         $indexes = Get-SystemIndexes -FilePath $pf.FullName
         if ($indexes.Count -eq 0) { continue }
         $successfulParsing++
-
         $indexNum = 0
         foreach ($index in $indexes) {
             $indexNum++
-
             if ($index -match '\\VOLUME\{[^\}]+\}\\(.*)$') {
                 $resolved = "C:\$($Matches[1])"
                 $allPaths += $resolved
@@ -2471,25 +2095,19 @@ function Start-CyemerScan {
             }
         }
     }
-
     Write-Progress -Activity "Extracting Indexes" -Completed
-
     $uniquePaths = $allPaths | Select-Object -Unique
     Write-Host "[+] Parsed prefetch files: $successfulParsing / $processedFiles" -ForegroundColor Green
     Write-Host "[+] Total extracted paths: $($allPaths.Count)" -ForegroundColor Green
     Write-Host "[+] Unique paths: $($uniquePaths.Count)" -ForegroundColor Green
     Write-Host ""
-
     $existingPaths = @{}
     $missingPaths = @()
     $outsideRangeCount = 0
     $resolvedToDifferentDrive = 0
-
     $allDrives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' } | ForEach-Object { $_.Root.Substring(0,1) }
-
     foreach ($path in $uniquePaths) {
         $foundPath = $null
-
         if (Test-Path $path -PathType Leaf) {
             $foundPath = $path
         } elseif ($path -match '^[A-Z]:\\(.*)$') {
@@ -2503,7 +2121,6 @@ function Start-CyemerScan {
                 }
             }
         }
-
         if ($foundPath) {
             try {
                 $size = (Get-Item $foundPath).Length
@@ -2519,7 +2136,6 @@ function Start-CyemerScan {
             $missingPaths += $path
         }
     }
-
     Write-Host "[+] Existing files in scan range: $($existingPaths.Count)" -ForegroundColor Green
     if ($resolvedToDifferentDrive -gt 0) {
         Write-Host "[+] Resolved on different drives: $resolvedToDifferentDrive" -ForegroundColor Cyan
@@ -2527,36 +2143,28 @@ function Start-CyemerScan {
     Write-Host "[!] Files outside range: $outsideRangeCount" -ForegroundColor Gray
     Write-Host "[!] Missing paths: $($missingPaths.Count)" -ForegroundColor Yellow
     Write-Host ""
-
     $deletedFilesForUi = @()
     $selfDestructFindings = @()
-
     if ($missingPaths.Count -gt 0) {
         $ntfsDrives = Get-NTFSDrives
         if ($ntfsDrives.Count -gt 0) {
             Get-RecentDeletionsFromUSN -DriveLetters $ntfsDrives -MinutesBack 90 | Out-Null
         }
-
         foreach ($missingPath in $missingPaths) {
             if ($missingPath -match '\\TEMP\\|\\TMP\\|HSPERFDATA|\.TMP$|JNA\d+\.DLL') { continue }
             if ($missingPath -notmatch '\.(JAR|EXE|DLL|BIN|DAT)$') { continue }
-
             $recentDeletion = Test-RecentlyDeleted -FilePath $missingPath
             $deletionTime = $null
             $reason = $null
-
             if ($recentDeletion) {
                 $deletionTime = $recentDeletion.Timestamp
                 $reason = $recentDeletion.Reason
             }
-
             $sourcePf = ""
             if ($fileMetadata.ContainsKey($missingPath)) {
                 $sourcePf = $fileMetadata[$missingPath].SourceFile
             }
-
             $sd = Test-SelfDestructSuspicion -Path $missingPath -SourceFile $sourcePf -RecentDeletion $recentDeletion
-
             $deletedFilesForUi += [PSCustomObject]@{
                 Path                = $missingPath
                 SourceFile          = $sourcePf
@@ -2567,7 +2175,6 @@ function Start-CyemerScan {
                 SuspicionScore      = $sd.Score
                 SuspicionReasons    = ($sd.Reasons -join " | ")
             }
-
             if ($sd.IsSuspicious) {
                 $selfDestructFindings += [PSCustomObject]@{
                     Path         = $missingPath
@@ -2581,26 +2188,20 @@ function Start-CyemerScan {
             }
         }
     }
-
     Write-Host "[*] Scanning existing files for Cyemer..." -ForegroundColor Cyan
     Write-Host ""
-
     $detections = @()
     $scanned = 0
     $skipped = 0
-
     foreach ($assumedPath in $existingPaths.Keys) {
         $actualPath = $existingPaths[$assumedPath]
         $scanned++
-
         Write-Progress -Activity "Scanning for Cyemer" -Status "[$scanned/$($existingPaths.Count)]" -PercentComplete (($scanned / $existingPaths.Count) * 100)
-
         $result = Test-CyemerClient -Path $actualPath
         if ($result.Error) {
             $skipped++
             continue
         }
-
         if ($result.IsDetected) {
             $detections += [PSCustomObject]@{
                 Path                = $actualPath
@@ -2612,16 +2213,13 @@ function Start-CyemerScan {
                 StrongMatchCount    = $result.StrongMatchCount
                 Matches             = $result.Matches
             }
-
             Write-Host "[!] DETECTION: $actualPath" -ForegroundColor Red
             Write-Host "    Confidence: $($result.Confidence)" -ForegroundColor Yellow
             Write-Host "    Matches: $($result.MatchCount) | Strong: $($result.StrongMatchCount)" -ForegroundColor DarkGray
             Write-Host ""
         }
     }
-
     Write-Progress -Activity "Scanning for Cyemer" -Completed
-
     $stats = @{
         WindowsVersion    = "$($osVersion.Major).$($osVersion.Minor) Build $($osVersion.Build)"
         JavaPrefetchCount = $javaFiles.Count
@@ -2634,7 +2232,6 @@ function Start-CyemerScan {
         FilesSkipped      = $skipped
         MissingFiles      = $missingPaths.Count
     }
-
     Show-Dashboard -Stats $stats -Detections $detections -DeletedFiles $deletedFilesForUi -SelfDestructFindings $selfDestructFindings
 }
 
@@ -2653,7 +2250,6 @@ Start-CyemerScan
 function Run-VelarisScanner {
     Write-Log "Starting Velaris Scanner..."
     Set-Status "Running" "Velaris Scanner - Scanning..." "BUSY"
-    
     try {
         $scriptContent = @'
 #Requires -Version 5.1
@@ -2665,9 +2261,6 @@ $script:RecentDeletions  = @{}
 $script:USNSearched      = $false
 $script:ScanVersion      = "3.0"
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  NEEDLE LISTS
-# ─────────────────────────────────────────────────────────────────────────────
 $script:VelarisNeedles = @(
     "velaris","Velaris","VELARIS","com/velaris","com.velaris","VelarisClient",
     "velaris-client","velaris_client","VelarisMod","velarismod",
@@ -2709,7 +2302,6 @@ $script:VelarisStrongNeedles = @(
     "velaris-login","VelarisModule","VelarisCommand","velaris_chams","velaris_esp"
 )
 
-# ── AutoMace & Heavy-Hitter Cheats ──────────────────────────────────────────
 $script:AutoMaceNeedles = @(
     "AutoMace","automace","auto_mace","AutoCrystal","autocrystal","auto_crystal",
     "CrystalAura","crystalaura","crystal_aura","AutoTotem","autototem","auto_totem",
@@ -2723,7 +2315,6 @@ $script:AutoMaceNeedles = @(
     "net/optifine","OptiFine","optifine","Sodium","sodium","Iris","iris"
 )
 
-# ── Generic Cheat-Client Signatures (non-Velaris) ───────────────────────────
 $script:GenericCheatNeedles = @(
     "meteor","MeteorClient","meteor-client","com/meteorclient",
     "impact","ImpactClient","com/impactclient",
@@ -2771,7 +2362,6 @@ $script:VelarisSelfDestructKeywords = @(
     "vape","inertia","ghostware","dragonfly"
 )
 
-# ── Legitimate mod IDs (reduce false positives on Unknown-Mod check) ─────────
 $script:KnownLegitModIds = @(
     "fabric","fabricloader","fabric-api","fabric_loader",
     "forge","neoforge","quilt","quiltloader",
@@ -2794,9 +2384,6 @@ $script:KnownLegitModIds = @(
     "paulscode","io/netty","com/ibm","org/objectweb"
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  NTDLL DECOMPRESSOR
-# ─────────────────────────────────────────────────────────────────────────────
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -2825,9 +2412,6 @@ public class NtdllDecompressor {
 }
 "@
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  UI HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
 function Show-Banner {
     Clear-Host
     $banner = @"
@@ -2874,9 +2458,6 @@ function Format-FileSize {
     return "$Size B"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  ADMIN / SYSTEM HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
 function Test-Administrator {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -2917,9 +2498,6 @@ function Search-BytePattern {
     return $false
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  PREFETCH PARSING
-# ─────────────────────────────────────────────────────────────────────────────
 function Get-SystemIndexes {
     param([string]$FilePath)
     try {
@@ -2957,9 +2535,6 @@ function Get-SystemIndexes {
     } catch { return @() }
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  USN JOURNAL
-# ─────────────────────────────────────────────────────────────────────────────
 function Get-RecentDeletionsFromUSN {
     param([string[]]$DriveLetters,[int]$MinutesBack=120)
     if ($script:USNSearched) { return $script:RecentDeletions }
@@ -2997,9 +2572,6 @@ function Test-RecentlyDeleted {
     return $null
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  FABRIC MOD JSON PARSER
-# ─────────────────────────────────────────────────────────────────────────────
 function Read-FabricModJson {
     param([System.IO.Compression.ZipArchive]$Jar)
     $entry = $Jar.Entries | Where-Object { $_.FullName -eq "fabric.mod.json" } | Select-Object -First 1
@@ -3038,9 +2610,6 @@ function Read-ForgeModsToml {
     } catch { return $null }
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  UNKNOWN MOD SCORER
-# ─────────────────────────────────────────────────────────────────────────────
 function Test-UnknownMod {
     param(
         [string]$JarPath,
@@ -3061,11 +2630,8 @@ function Test-UnknownMod {
         ObfuscatedCode = $false
         SuspiciousImports = @()
     }
-
     $lowerPath = $JarPath.ToLower()
     $jarName   = [System.IO.Path]::GetFileNameWithoutExtension($JarPath).ToLower()
-
-    # Pull mod identity
     if ($FabricMeta) {
         $result.ModId      = $FabricMeta.id
         $result.ModName    = $FabricMeta.name
@@ -3074,16 +2640,11 @@ function Test-UnknownMod {
         $result.ModId   = $ForgeMeta.modId
         $result.ModName = $ForgeMeta.displayName
     }
-
     $modIdLower = $result.ModId.ToLower()
-
-    # ── 1. No mod descriptor at all ─────────────────────────────────────────
     if (-not $result.HasModJson) {
         $result.Score += 3
         $result.Reasons += "No fabric.mod.json / mods.toml found (anonymous JAR)"
     }
-
-    # ── 2. Mod ID is unknown / not in legit list ─────────────────────────────
     if ($result.ModId -ne "") {
         $isKnown = $false
         foreach ($known in $script:KnownLegitModIds) {
@@ -3094,14 +2655,10 @@ function Test-UnknownMod {
             $result.Reasons += "Mod ID '$($result.ModId)' not in known-legit database"
         }
     }
-
-    # ── 3. No homepage / sources link ───────────────────────────────────────
     if ($FabricMeta) {
         $hasLink = ($FabricMeta.contact['homepage'] -ne "" -or $FabricMeta.contact['sources'] -ne "")
         if (-not $hasLink) { $result.Score += 1; $result.Reasons += "No homepage or sources link in fabric.mod.json" }
     }
-
-    # ── 4. Collect all class names for analysis ──────────────────────────────
     $classNames  = @()
     $allTextData = New-Object 'System.Collections.Generic.List[byte]'
     foreach ($entry in $Jar.Entries) {
@@ -3117,8 +2674,6 @@ function Test-UnknownMod {
             } catch {}
         }
     }
-
-    # ── 5. Obfuscation heuristic: many 1-2 char class names ─────────────────
     $shortNames = @($classNames | Where-Object {
         $parts = $_.Split('/')
         $simple = [System.IO.Path]::GetFileNameWithoutExtension($parts[-1])
@@ -3132,8 +2687,6 @@ function Test-UnknownMod {
             $result.Reasons += "High obfuscation ratio: $([math]::Round($ratio*100))% short class names ($($shortNames.Count)/$($classNames.Count))"
         }
     }
-
-    # ── 6. Suspicious string patterns inside bytecode ────────────────────────
     $suspImports = @()
     $allBytes = $allTextData.ToArray()
     $suspPatterns = @(
@@ -3167,8 +2720,6 @@ function Test-UnknownMod {
         $result.SuspiciousImports = $suspImports
         $result.Reasons += "Suspicious bytecode patterns: $($suspImports.Count) hits"
     }
-
-    # ── 7. Generic cheat signatures ──────────────────────────────────────────
     $cheatHits = 0
     foreach ($needle in $script:GenericCheatNeedles) {
         $pat = [System.Text.Encoding]::ASCII.GetBytes($needle)
@@ -3178,8 +2729,6 @@ function Test-UnknownMod {
         $result.Score += [Math]::Min(6, $cheatHits)
         $result.Reasons += "Generic cheat client signatures: $cheatHits matches"
     }
-
-    # ── 8. AutoMace / Combat-hack specific ───────────────────────────────────
     $autoMaceHits = 0
     foreach ($needle in $script:AutoMaceNeedles) {
         $pat = [System.Text.Encoding]::ASCII.GetBytes($needle)
@@ -3189,28 +2738,19 @@ function Test-UnknownMod {
         $result.Score += [Math]::Min(5, $autoMaceHits)
         $result.Reasons += "AutoMace / crystal-PvP hack signatures: $autoMaceHits matches"
     }
-
-    # ── 9. Jar is very small & only has obfuscated classes ───────────────────
     $jarSize = (Get-Item $JarPath -ErrorAction SilentlyContinue).Length
     if ($jarSize -lt 20KB -and $classNames.Count -gt 0 -and $result.ObfuscatedCode) {
         $result.Score += 2
         $result.Reasons += "Tiny obfuscated JAR ($(Format-FileSize $jarSize)) — common loader pattern"
     }
-
-    # ── Score → Confidence ───────────────────────────────────────────────────
     if ($result.Score -ge 10)     { $result.IsUnknown=$true; $result.Confidence="HIGH" }
     elseif ($result.Score -ge 6)  { $result.IsUnknown=$true; $result.Confidence="MEDIUM" }
     elseif ($result.Score -ge 3)  { $result.IsUnknown=$true; $result.Confidence="LOW" }
-
     return $result
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  CORE JAR SCANNER
-# ─────────────────────────────────────────────────────────────────────────────
 function Test-JarFull {
     param([string]$Path)
-
     $result = [PSCustomObject]@{
         Path             = $Path
         FileSize         = 0
@@ -3233,25 +2773,18 @@ function Test-JarFull {
         FabricMeta       = $null
         ForgeMeta        = $null
     }
-
     if (-not (Test-Path $Path -PathType Leaf)) { $result.Error="File not found"; return $result }
     $result.FileSize = (Get-Item $Path).Length
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-
     try {
         $ext   = [System.IO.Path]::GetExtension($Path).ToLower()
         $hasPK = Test-ZipMagicBytes -Path $Path
         if ($hasPK -and $ext -ne ".jar") { $result.IsRenamedJar=$true }
         if (-not $hasPK) { $result.Error="Not a valid ZIP/JAR"; return $result }
-
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $jar = [System.IO.Compression.ZipFile]::OpenRead($Path)
-
-        # Read fabric/forge meta
         $result.FabricMeta = Read-FabricModJson  -Jar $jar
         $result.ForgeMeta  = Read-ForgeModsToml  -Jar $jar
-
-        # Collect bytes
         $allBytesList = New-Object 'System.Collections.Generic.List[byte]'
         foreach ($entry in $jar.Entries) {
             $en = $entry.FullName.ToLower()
@@ -3274,10 +2807,7 @@ function Test-JarFull {
                 } catch {}
             }
         }
-
         $allBytes = $allBytesList.ToArray()
-
-        # ── Velaris ──────────────────────────────────────────────────────────
         foreach ($n in $script:VelarisNeedles) {
             $pat=[System.Text.Encoding]::ASCII.GetBytes($n)
             if (Search-BytePattern -Data $allBytes -Pattern $pat) { $result.VelarisMatches += $n }
@@ -3296,42 +2826,29 @@ function Test-JarFull {
         if ($result.VelarisFiles.Count -ge 5 -and $result.VelarisConfidence -ne "HIGH") { $result.VelarisConfidence="HIGH" }
         if ($result.ConfigPaths.Count -gt 0  -and $result.VelarisConfidence -eq "LOW")  { $result.VelarisConfidence="MEDIUM" }
         if ($result.IsRenamedJar -and $result.IsVelaris -and $result.VelarisConfidence -eq "LOW") { $result.VelarisConfidence="MEDIUM" }
-
-        # ── AutoMace / Combat Hacks ───────────────────────────────────────────
         foreach ($n in $script:AutoMaceNeedles) {
             $pat=[System.Text.Encoding]::ASCII.GetBytes($n)
             if (Search-BytePattern -Data $allBytes -Pattern $pat) { $result.AutoMaceMatches += $n }
         }
         $result.AutoMaceCount = $result.AutoMaceMatches.Count
         if ($result.AutoMaceCount -ge 2) { $result.IsAutoMace=$true }
-
-        # ── Generic Cheat Client ──────────────────────────────────────────────
         foreach ($n in $script:GenericCheatNeedles) {
             $pat=[System.Text.Encoding]::ASCII.GetBytes($n)
             if (Search-BytePattern -Data $allBytes -Pattern $pat) { $result.GenericMatches += $n }
         }
         $result.GenericCount = $result.GenericMatches.Count
         if ($result.GenericCount -ge 3) { $result.IsGenericCheat=$true }
-
-        # ── Unknown Mod Check ─────────────────────────────────────────────────
         $result.UnknownMod = Test-UnknownMod -JarPath $Path -Jar $jar -FabricMeta $result.FabricMeta -ForgeMeta $result.ForgeMeta
-
         $jar.Dispose()
     } catch { $result.Error = $_.Exception.Message }
-
     $sw.Stop()
     $result.ScanTimeMs = $sw.ElapsedMilliseconds
     return $result
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  FULL-SYSTEM JAR DISCOVERY
-# ─────────────────────────────────────────────────────────────────────────────
 function Get-AllJarsOnSystem {
     param([long]$MinBytes=10KB,[long]$MaxBytes=200MB)
     $found = [System.Collections.Generic.List[string]]::new()
-
-    # Priority scan paths (fast, most likely hits)
     $priorityPaths = @(
         "$env:APPDATA\.minecraft",
         "$env:APPDATA\ModrinthApp",
@@ -3347,7 +2864,6 @@ function Get-AllJarsOnSystem {
         "$env:TEMP",
         [System.IO.Path]::GetTempPath()
     )
-
     Write-Status "Phase 1/2: Scanning priority Minecraft/launcher paths..." Cyan
     foreach ($p in $priorityPaths) {
         if (-not (Test-Path $p)) { continue }
@@ -3357,7 +2873,6 @@ function Get-AllJarsOnSystem {
             ForEach-Object { $found.Add($_.FullName) }
         } catch {}
     }
-
     Write-Status "Phase 2/2: Scanning all drives for remaining JAR files..." Cyan
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' }
     foreach ($drive in $drives) {
@@ -3374,16 +2889,11 @@ function Get-AllJarsOnSystem {
             }
         } catch {}
     }
-
-    # Deduplicate
     $unique = $found | Select-Object -Unique
     Write-Success "Total JAR/archive files found: $($unique.Count)"
     return $unique
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  SELF-DESTRUCT ANALYSIS
-# ─────────────────────────────────────────────────────────────────────────────
 function Test-SelfDestructSuspicion {
     param([string]$Path,[string]$SourceFile="",$RecentDeletion=$null)
     $result = [PSCustomObject]@{
@@ -3411,9 +2921,6 @@ function Test-SelfDestructSuspicion {
     return $result
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  MODPACK FOLDER SCAN
-# ─────────────────────────────────────────────────────────────────────────────
 function Get-ModpackPath {
     Write-Host ""
     Write-Status "Enter your Modpack profile path (press Enter to skip)" Cyan
@@ -3430,7 +2937,6 @@ function Scan-ModpackFolder {
     $findings = @()
     if ([string]::IsNullOrWhiteSpace($ModpackPath) -or -not (Test-Path $ModpackPath)) { return $findings }
     Write-Status "Scanning modpack folder: $ModpackPath" Cyan
-
     foreach ($cn in @(".velaris-cache",".velaris_cache")) {
         $cp = Join-Path $ModpackPath $cn
         if (Test-Path $cp) {
@@ -3493,8 +2999,6 @@ function Scan-ModpackFolder {
         }
         Write-Progress -Activity "Scanning Modpack Mods" -Completed
     }
-
-    # Logs
     $logFolder = Join-Path $ModpackPath "logs"
     if (Test-Path $logFolder) {
         foreach ($log in (Get-ChildItem -Path $logFolder -Filter "*.log" -ErrorAction SilentlyContinue | Select-Object -First 5)) {
@@ -3507,20 +3011,15 @@ function Scan-ModpackFolder {
             } catch {}
         }
     }
-
     Write-Success "Modpack scan complete — $($findings.Count) finding(s)."
     return $findings
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  DISPLAY / DASHBOARD
-# ─────────────────────────────────────────────────────────────────────────────
 function Show-AllDetections {
     param([array]$AllDetections)
     Show-Banner
     Write-Host "  ALL DETECTIONS — FULL SYSTEM SCAN" -ForegroundColor Cyan; Write-Separator
     if ($AllDetections.Count -eq 0) { Write-Success "No detections found on this system."; return }
-
     $byCategory = $AllDetections | Group-Object Category
     foreach ($grp in $byCategory) {
         $catColor = switch ($grp.Name) {
@@ -3572,7 +3071,6 @@ function Show-Summary {
     $umCount   = @($AllDetections | Where-Object { $_.Category -eq "UNKNOWN_MOD" }).Count
     $sdCount   = @($AllDetections | Where-Object { $_.Category -eq "SELF_DESTRUCT" }).Count
     $highCount = @($AllDetections | Where-Object { $_.Confidence -eq "HIGH" }).Count
-
     if ($AllDetections.Count -gt 0) { Write-Stat "Overall Status" "⚠ DETECTIONS FOUND" Red }
     else                            { Write-Stat "Overall Status" "✔ CLEAN — No cheats detected" Green }
     Write-Host ""
@@ -3621,28 +3119,20 @@ function Show-Dashboard {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  MAIN ENTRY POINT
-# ─────────────────────────────────────────────────────────────────────────────
 function Start-VelarisScan {
     param([switch]$Debug,[switch]$SkipFullSystemScan,[switch]$SkipModpack)
     $script:DebugMode = $Debug
     $scanStart = Get-Date
     Show-Banner
-
     if (-not (Test-Administrator)) {
         Write-Err "Administrator privileges required."
         Write-Warning "Right-click PowerShell → Run as Administrator"
         return
     }
-
     $osVer = [System.Environment]::OSVersion.Version
     Write-Status "OS: $($osVer.Major).$($osVer.Minor) Build $($osVer.Build)" Cyan
     Write-Host ""
-
     $allDetections = [System.Collections.Generic.List[object]]::new()
-
-    # ── 1. Modpack scan ───────────────────────────────────────────────────────
     $modpackFindings = @()
     if (-not $SkipModpack) {
         $modpackPath = Get-ModpackPath
@@ -3651,19 +3141,14 @@ function Start-VelarisScan {
             foreach ($f in $modpackFindings) { [void]$allDetections.Add($f) }
         }
     }
-
-    # ── 2. Prefetch analysis ──────────────────────────────────────────────────
     $prefetchPath = "C:\Windows\Prefetch"
     $javaFiles = @()
     $pfParsed=0; $pfTotal=0; $missingCount=0
     $fileMetadata = @{}; $prefetchPaths = @()
-
     if (Test-Path $prefetchPath) {
         $javaFiles = @(Get-ChildItem -Path $prefetchPath -Filter "JAVA*.EXE-*.pf" -ErrorAction SilentlyContinue)
         $pfTotal   = $javaFiles.Count
         Write-Success "Found $pfTotal JAVA prefetch file(s)"; Write-Host ""
-
-        # ── Detailed info for every prefetch file ─────────────────────────────
         foreach ($pf in $javaFiles) {
             Write-SubSeparator
             Write-Host "  PREFETCH: $($pf.Name)" -ForegroundColor Cyan
@@ -3677,7 +3162,6 @@ function Start-VelarisScan {
                 Write-Stat "Executable"  $Matches[1]  White
                 Write-Stat "PF Hash"     $Matches[2]  DarkGray
             }
-            # Parse binary for run count + last run timestamps
             try {
                 $pfBytes = [System.IO.File]::ReadAllBytes($pf.FullName)
                 if ($pfBytes.Length -ge 3 -and $pfBytes[0] -eq 0x4D -and $pfBytes[1] -eq 0x41 -and $pfBytes[2] -eq 0x4D) {
@@ -3706,7 +3190,6 @@ function Start-VelarisScan {
                             }
                         } catch {}
                     }
-                    # Up to 8 run timestamps on Win10 (offsets 0xC0–0xFE, each 8 bytes)
                     if ($ver -eq 30 -and $pfBytes.Length -ge 0x100) {
                         $tsSlots = @()
                         for ($ti=0; $ti -lt 8; $ti++) {
@@ -3727,7 +3210,6 @@ function Start-VelarisScan {
             Write-Host ""
         }
         Write-SubSeparator; Write-Host ""
-
         $processed = 0
         foreach ($pf in $javaFiles) {
             $processed++
@@ -3746,12 +3228,9 @@ function Start-VelarisScan {
             }
         }
         Write-Progress -Activity "Parsing Prefetch" -Completed
-
-        # Check missing files
         $uniquePF = $prefetchPaths | Select-Object -Unique
         $ntfsDrives = Get-NTFSDrives
         if ($ntfsDrives.Count -gt 0) { Get-RecentDeletionsFromUSN -DriveLetters $ntfsDrives -MinutesBack 120 | Out-Null }
-
         foreach ($p in $uniquePF) {
             if (Test-Path $p -PathType Leaf) { continue }
             if ($p -match '\\TEMP\\|\\TMP\\|HSPERFDATA|\.TMP$|JNA\d+\.DLL') { continue }
@@ -3775,31 +3254,23 @@ function Start-VelarisScan {
     } else {
         Write-Warning "Prefetch directory not found (may be disabled)."
     }
-
-    # ── 3. Full-system JAR scan ────────────────────────────────────────────────
     $totalJarsFound=0; $jarsScanned=0; $jarsSkipped=0
-
     if (-not $SkipFullSystemScan) {
         Write-Host ""
         Write-Status "Starting full-system JAR discovery and scan..." Cyan
         Write-Warning "This may take several minutes on large drives."
         Write-Host ""
-
         $allJars = @(Get-AllJarsOnSystem)
         $totalJarsFound = $allJars.Count
         $idx=0
-
         foreach ($jarPath in $allJars) {
             $idx++
             $shortName = Split-Path $jarPath -Leaf
             Write-Progress -Activity "Full-System JAR Scan" -Status "[$idx/$totalJarsFound] $shortName" -PercentComplete (($idx/$totalJarsFound)*100)
-
             $r = Test-JarFull -Path $jarPath
             $jarsScanned++
             if ($r.Error) { $jarsSkipped++; continue }
-
-            $loc = $jarPath  # full path shown in detections
-
+            $loc = $jarPath
             if ($r.IsVelaris) {
                 [void]$allDetections.Add([PSCustomObject]@{
                     Category="VELARIS"; Type="JAR_CONTENT"; Path=$loc; Confidence=$r.VelarisConfidence
@@ -3843,8 +3314,6 @@ function Start-VelarisScan {
         Write-Progress -Activity "Full-System JAR Scan" -Completed
         Write-Success "Full-system JAR scan complete — $jarsScanned scanned, $jarsSkipped skipped."
     }
-
-    # ── Stats & Dashboard ──────────────────────────────────────────────────────
     $scanEnd = Get-Date
     $stats = @{
         WindowsVersion = "$($osVer.Major).$($osVer.Minor) Build $($osVer.Build)"
@@ -3856,7 +3325,6 @@ function Start-VelarisScan {
         JarsScanned    = $jarsScanned
         MissingFiles   = $missingCount
     }
-
     $detArr = @($allDetections)
     Write-Host ""
     Write-Success "Scan complete in $($stats.ScanDuration) seconds!"
@@ -3866,7 +3334,6 @@ function Start-VelarisScan {
     Show-Dashboard -Stats $stats -AllDetections $detArr
 }
 
-# Run
 Start-VelarisScan
 '@
         $tempScript = Join-Path $env:TEMP "VelarisScanner.ps1"
@@ -3882,11 +3349,8 @@ Start-VelarisScan
 function Run-HeatedModAnalyzer {
     Write-Log "Starting Heated Mod Analyzer..."
     Set-Status "Running" "Heated Mod Analyzer - Scanning..." "BUSY"
-    
     try {
         $scriptContent = @'
-# Heated Mod Analyzer v1.0
-
 param(
     [string]$ModPath,
     [switch]$SkipDeepScan,
@@ -3895,7 +3359,6 @@ param(
 
 Clear-Host
 
-# ========== HEATED BANNER ==========
 $HeatedBanner = @"
 
   ██╗  ██╗███████╗ █████╗ ████████╗███████╗██████╗
@@ -3924,7 +3387,6 @@ Write-Host ""
 Write-Host ("━" * 76) -ForegroundColor DarkRed
 Write-Host ""
 
-# ========== PATH SELECTION ==========
 Write-Host " Enter path to mods folder:" -ForegroundColor Cyan
 Write-Host " (Press Enter to use default Minecraft mods folder)" -ForegroundColor DarkGray
 $inputPath = Read-Host " PATH"
@@ -3945,7 +3407,6 @@ Write-Host ""
 Write-Host ("━" * 76) -ForegroundColor DarkRed
 Write-Host ""
 
-# ========== MINECRAFT UPTIME CHECK ==========
 $mcProcess = Get-Process javaw -ErrorAction SilentlyContinue
 if (-not $mcProcess) {
     $mcProcess = Get-Process java -ErrorAction SilentlyContinue
@@ -3962,8 +3423,6 @@ if ($mcProcess) {
     } catch {}
 }
 
-# ========== FUNCTIONS ==========
-
 function Get-ZoneIdentifier {
     param ([string]$filePath)
     $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
@@ -3975,7 +3434,6 @@ function Get-ZoneIdentifier {
 
 function Get-FileDates {
     param([string]$FilePath)
-    
     $file = Get-Item $FilePath -ErrorAction SilentlyContinue
     if ($file) {
         return @{
@@ -3993,9 +3451,7 @@ function Get-FileDates {
 
 function Get-SourceDescription {
     param([string]$ZoneUrl)
-    
     if (-not $ZoneUrl) { return "Unknown" }
-    
     if ($ZoneUrl -match "discord") { return "Discord" }
     if ($ZoneUrl -match "modrinth") { return "Modrinth" }
     if ($ZoneUrl -match "curseforge") { return "CurseForge" }
@@ -4008,11 +3464,9 @@ function Get-SourceDescription {
     if ($ZoneUrl -match "intent.store") { return "Intent Store" }
     if ($ZoneUrl -match "rise.today") { return "Rise Client" }
     if ($ZoneUrl -match "doomsday") { return "Doomsday Client" }
-    
     if ($ZoneUrl -match "https?://([^/]+)") {
         return $matches[1]
     }
-    
     return "Unknown"
 }
 
@@ -4044,13 +3498,10 @@ function Test-Megabase {
     return $null
 }
 
-# ========== DEEP SCAN FUNCTION ==========
 function Invoke-DeepScan {
     param([string]$FilePath)
-    
     $foundPatterns = [System.Collections.Generic.HashSet[string]]::new()
     $tempDir = Join-Path $env:TEMP "heated_deepscan_$(Get-Random)"
-    
     $cheatPatterns = @(
         "KillAura", "ClickAura", "TriggerBot", "MultiAura", "ForceField", "AimAssist", "AimBot", "SilentAim",
         "CrystalAura", "AutoCrystal", "AutoHitCrystal", "AnchorAura", "AutoAnchor", "DoubleAnchor", "SafeAnchor",
@@ -4062,14 +3513,11 @@ function Invoke-DeepScan {
         "vape.gg", "vape v4", "vapeclient", "intent.store", "rise.today", "riseclient.com", "meteorclient",
         "wurstclient", "liquidbounce", "doomsdayclient", "DoomsdayClient", "aristois", "impactclient"
     )
-    
     try {
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::ExtractToDirectory($FilePath, $tempDir)
-        
         $files = Get-ChildItem -Path $tempDir -Recurse -Include *.class, *.json, *.properties, *.txt, *.cfg -ErrorAction SilentlyContinue
-        
         foreach ($file in $files) {
             try {
                 $content = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
@@ -4082,7 +3530,6 @@ function Invoke-DeepScan {
                 }
             } catch {}
         }
-        
         $nestedJars = Get-ChildItem -Path "$tempDir\META-INF\jars" -Filter *.jar -ErrorAction SilentlyContinue
         foreach ($nested in $nestedJars) {
             $nestedResult = Invoke-DeepScan -FilePath $nested.FullName
@@ -4090,17 +3537,14 @@ function Invoke-DeepScan {
                 $foundPatterns.Add($pattern) | Out-Null
             }
         }
-        
     } finally {
         if (Test-Path $tempDir) {
             Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
-    
     return $foundPatterns
 }
 
-# ========== MAIN SCAN ==========
 $jarFiles = Get-ChildItem -Path $inputPath -Filter *.jar -File
 
 if ($jarFiles.Count -eq 0) {
@@ -4115,7 +3559,6 @@ Write-Host ""
 
 $spinner = @("⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷")
 
-# ========== PASS 1: VERIFICATION ==========
 Write-Host " PASS 1: Verifying mods against databases..." -ForegroundColor Cyan
 Write-Host ("─" * 76) -ForegroundColor DarkGray
 
@@ -4127,10 +3570,8 @@ foreach ($file in $jarFiles) {
     $counter++
     $spin = $spinner[$counter % $spinner.Length]
     Write-Host "`r [$spin] Verifying: $counter / $($jarFiles.Count) - $($file.Name)" -NoNewline -ForegroundColor Yellow
-    
     $hash = Get-SHA1 -filePath $file.FullName
     $fileDates = Get-FileDates -FilePath $file.FullName
-    
     $modrinthData = Test-Modrinth -hash $hash
     if ($modrinthData) {
         $verifiedMods += [PSCustomObject]@{
@@ -4146,7 +3587,6 @@ foreach ($file in $jarFiles) {
         }
         continue
     }
-    
     $megabaseData = Test-Megabase -hash $hash
     if ($megabaseData) {
         $verifiedMods += [PSCustomObject]@{
@@ -4162,7 +3602,6 @@ foreach ($file in $jarFiles) {
         }
         continue
     }
-    
     $unknownMods += [PSCustomObject]@{
         FileName = $file.Name
         FilePath = $file.FullName
@@ -4177,7 +3616,6 @@ foreach ($file in $jarFiles) {
 
 Write-Host "`r" + " " * 100 + "`r" -NoNewline
 
-# ========== PASS 2: DEEP SCAN ==========
 Write-Host ""
 Write-Host " PASS 2: Deep scanning unknown mods..." -ForegroundColor Cyan
 Write-Host ("─" * 76) -ForegroundColor DarkGray
@@ -4197,9 +3635,7 @@ if ($SkipDeepScan) {
         $counter++
         $spin = $spinner[$counter % $spinner.Length]
         Write-Host "`r [$spin] Deep scanning: $counter / $totalUnknown - $($mod.FileName)" -NoNewline -ForegroundColor Yellow
-        
         $deepResult = Invoke-DeepScan -FilePath $mod.FilePath
-        
         if ($deepResult.Count -gt 0) {
             $cheatMods += [PSCustomObject]@{
                 FileName = $mod.FileName
@@ -4221,7 +3657,6 @@ if ($SkipDeepScan) {
 
 Write-Host "`r" + " " * 100 + "`r" -NoNewline
 
-# ========== RESULTS ==========
 Clear-Host
 Write-Host $HeatedBanner -ForegroundColor Red
 Write-Host ""
@@ -4233,7 +3668,6 @@ Write-Host ""
 Write-Host ("━" * 76) -ForegroundColor DarkRed
 Write-Host ""
 
-# Verified Mods
 Write-Host " VERIFIED MODS ($($verifiedMods.Count))" -ForegroundColor Green
 Write-Host ("─" * 76) -ForegroundColor DarkGray
 if ($verifiedMods.Count -gt 0) {
@@ -4253,7 +3687,6 @@ if ($verifiedMods.Count -gt 0) {
     Write-Host ""
 }
 
-# Unknown Clean Mods
 Write-Host " UNKNOWN MODS (No cheats detected) ($($cleanUnknownMods.Count))" -ForegroundColor Yellow
 Write-Host ("─" * 76) -ForegroundColor DarkGray
 if ($cleanUnknownMods.Count -gt 0) {
@@ -4272,7 +3705,6 @@ if ($cleanUnknownMods.Count -gt 0) {
     Write-Host ""
 }
 
-# Cheat Mods
 Write-Host " CHEAT MODS DETECTED ($($cheatMods.Count))" -ForegroundColor Red
 Write-Host ("━" * 76) -ForegroundColor Red
 if ($cheatMods.Count -gt 0) {
@@ -4290,13 +3722,11 @@ if ($cheatMods.Count -gt 0) {
         Write-Host "  │  SIZE: $($mod.FileSize) KB" -ForegroundColor Gray
         Write-Host "  │  SHA1: $($mod.Hash)" -ForegroundColor Gray
         Write-Host "  │" -ForegroundColor DarkRed
-        
         if ($mod.SourceDesc -and $mod.SourceDesc -ne "Unknown") {
             Write-Host "  │  DOWNLOAD SOURCE:" -ForegroundColor Yellow
             Write-Host "  │     $($mod.SourceDesc)" -ForegroundColor Cyan
             Write-Host "  │" -ForegroundColor DarkRed
         }
-        
         Write-Host "  │  DETECTED PATTERNS ($($mod.PatternCount)):" -ForegroundColor Red
         foreach ($pattern in ($mod.PatternsFound | Select-Object -First 15)) {
             Write-Host "  │     • $pattern" -ForegroundColor DarkRed
@@ -4314,7 +3744,6 @@ if ($cheatMods.Count -gt 0) {
     Write-Host ""
 }
 
-# Summary
 Write-Host ("━" * 76) -ForegroundColor DarkRed
 Write-Host ""
 Write-Host " SUMMARY" -ForegroundColor Cyan
@@ -4325,7 +3754,6 @@ Write-Host "     Cheat Mods: $($cheatMods.Count)" -ForegroundColor Red
 Write-Host "     Total Scanned: $($jarFiles.Count)" -ForegroundColor White
 Write-Host ""
 
-# Export option
 if ($ExportJson) {
     $exportData = @{
         ScanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -4357,13 +3785,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 function Run-HackedClientsDetector {
     Write-Log "Starting Hacked Clients Detector..."
     Set-Status "Running" "Hacked Clients Detector - Scanning..." "BUSY"
-    
     try {
         $scriptContent = @'
-# =============================================
-# PowerShell Hacked Clients Detector (Full)
-# =============================================
-# Carpetas a escanear
 $scanPaths = @(
     "$env:USERPROFILE\Downloads",
     "$env:USERPROFILE\Desktop",
@@ -4371,7 +3794,6 @@ $scanPaths = @(
     "$env:APPDATA\.minecraft\mods"
 )
 
-# Tabla de Hacked Clients y patrones
 $hackedClients = @{
     "Meteor" = @("KillAura","AutoTotem","AutoArmor","Velocity","Flight","Scaffold","TriggerBot","Reach","Criticals","AutoMine","FastPlace","ChestSteal")
     "Doomsday" = @("KillAura","AutoTotem","AutoArmor","Velocity","Flight","Criticals","Scaffold","FastPlace","AutoXP","InventoryManipulation")
@@ -4386,17 +3808,14 @@ $hackedClients = @{
     "Krypton" = @("KillAura","AutoTotem","AutoArmor","Velocity","Flight","FastPlace","AutoXP")
 }
 
-# Función para analizar un .jar
 function Analyze-Jar($jarPath) {
     $scoreTable = @{}
     $modulesDetected = @()
-
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
         $entries = $zip.Entries | ForEach-Object { $_.FullName }
         $zip.Dispose()
-
         foreach ($client in $hackedClients.Keys) {
             $score = 0
             $modules = @()
@@ -4413,17 +3832,13 @@ function Analyze-Jar($jarPath) {
                 Modules = ($modules | Sort-Object -Unique) -join ", "
             }
         }
-
-        # Elegir cliente con mayor score
         $bestClient = $scoreTable.GetEnumerator() | Sort-Object -Property Value.Score -Descending | Select-Object -First 1
         if ($bestClient.Value.Score -ge 50) {
-            # HACKED CLIENT
             Write-Host "🔴 File: $jarPath" -ForegroundColor Red
             Write-Host "Detected Client: $($bestClient.Key)"
             Write-Host "Score: $($bestClient.Value.Score)"
             Write-Host "Modules: $($bestClient.Value.Modules)"
         } else {
-            # VERIFIED MOD / UNKNOWN
             Write-Host "🟢 File: $jarPath"
             Write-Host "Verified Mod / Unknown"
         }
@@ -4433,7 +3848,6 @@ function Analyze-Jar($jarPath) {
     }
 }
 
-# Escaneo de todas las carpetas
 foreach ($path in $scanPaths) {
     if (Test-Path $path) {
         Get-ChildItem -Path $path -Recurse -Filter *.jar | ForEach-Object {
@@ -4453,139 +3867,51 @@ foreach ($path in $scanPaths) {
 }
 
 function Run-DQRKISDetector {
-    Write-Log "Running DQRKIS Client Detector (Local Version)..."
+    Write-Log "Running DQRKIS Client Detector..."
     Set-Status "Running" "DQRKIS Detector - Scanning for DQRKIS..." "BUSY"
-    
     try {
-        $scriptContent = @'
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  DQRKIS CLIENT DETECTOR v2.0 (Local)" -ForegroundColor Red
-Write-Host "  DQRKIS Client Detection & Removal Tool" -ForegroundColor Yellow
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-
-# Common DQRKIS paths
-$dqrkisPaths = @(
-    "$env:APPDATA\.dqrkis",
-    "$env:APPDATA\DQRKIS",
-    "$env:LOCALAPPDATA\DQRKIS",
-    "$env:ProgramData\DQRKIS",
-    "$env:USERPROFILE\Desktop\DQRKIS",
-    "$env:USERPROFILE\Downloads\DQRKIS"
-)
-
-# Registry keys
-$registryKeys = @(
-    "HKCU:\Software\DQRKIS",
-    "HKLM:\Software\DQRKIS",
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run\DQRKIS"
-)
-
-# Suspicious processes
-$suspiciousProcesses = @(
-    "dqrkis.exe",
-    "dqrkisclient.exe",
-    "dqclient.exe",
-    "dqrkisc.exe"
-)
-
-$detectedFiles = @()
-$detectedRegKeys = @()
-$detectedProcesses = @()
-$detectedPaths = @()
-
-Write-Host "[*] Checking for DQRKIS files..." -ForegroundColor Cyan
-
-$scanDirs = @(
-    "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop",
-    "$env:APPDATA",
-    "$env:LOCALAPPDATA"
-)
-
-foreach ($dir in $scanDirs) {
-    if (Test-Path $dir) {
-        $files = Get-ChildItem -Path $dir -Recurse -Filter "*dqrkis*" -ErrorAction SilentlyContinue
-        foreach ($file in $files) {
-            $detectedFiles += $file.FullName
-            Write-Host "  [!] Found: $($file.FullName)" -ForegroundColor Red
-        }
-    }
-}
-
-foreach ($path in $dqrkisPaths) {
-    if (Test-Path $path) {
-        $detectedPaths += $path
-        Write-Host "  [!] Found DQRKIS directory: $path" -ForegroundColor Red
-        try {
-            Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "  [✓] Removed: $path" -ForegroundColor Green
-        } catch {
-            Write-Host "  [✗] Failed to remove: $path" -ForegroundColor Red
-        }
-    }
-}
-
-Write-Host ""
-Write-Host "[*] Checking registry for DQRKIS..." -ForegroundColor Cyan
-
-foreach ($key in $registryKeys) {
-    if (Test-Path $key) {
-        $detectedRegKeys += $key
-        Write-Host "  [!] Found registry key: $key" -ForegroundColor Red
-        try {
-            Remove-Item -Path $key -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "  [✓] Removed registry key" -ForegroundColor Green
-        } catch {
-            Write-Host "  [✗] Failed to remove registry key" -ForegroundColor Red
-        }
-    }
-}
-
-Write-Host ""
-Write-Host "[*] Checking running processes..." -ForegroundColor Cyan
-
-foreach ($proc in $suspiciousProcesses) {
-    $running = Get-Process -Name $proc -ErrorAction SilentlyContinue
-    if ($running) {
-        $detectedProcesses += $proc
-        Write-Host "  [!] Found DQRKIS process: $proc" -ForegroundColor Red
-        try {
-            Stop-Process -Name $proc -Force -ErrorAction SilentlyContinue
-            Write-Host "  [✓] Killed process" -ForegroundColor Green
-        } catch {
-            Write-Host "  [✗] Failed to kill process" -ForegroundColor Red
-        }
-    }
-}
-
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  SCAN RESULTS" -ForegroundColor Yellow
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Files found: $($detectedFiles.Count)" -ForegroundColor White
-Write-Host "  Registry keys found: $($detectedRegKeys.Count)" -ForegroundColor White
-Write-Host "  Suspicious processes: $($detectedProcesses.Count)" -ForegroundColor White
-Write-Host "  DQRKIS directories: $($detectedPaths.Count)" -ForegroundColor White
-
-if ($detectedFiles.Count -gt 0 -or $detectedRegKeys.Count -gt 0 -or $detectedProcesses.Count -gt 0 -or $detectedPaths.Count -gt 0) {
-    Write-Host ""
-    Write-Host "  [⚠️] DQRKIS detected and cleaned!" -ForegroundColor Red
-} else {
-    Write-Host ""
-    Write-Host "  [✓] No DQRKIS detected." -ForegroundColor Green
-}
-
-Write-Host ""
-Read-Host "Press Enter to exit"
-'@
-        $tempScript = Join-Path $env:TEMP "DQRKISDetector.ps1"
-        Set-Content -Path $tempScript -Value $scriptContent -Encoding UTF8
-        Start-Process powershell.exe -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-File", "`"$tempScript`""
-        Set-Status "Ready" "DQRKIS Detector started" "DONE"
+        $psCommand = "Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression (Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/cheesecatlol/DQRKIS-FUCKER/refs/heads/main/DqrkisFucker.ps1')"
+        Start-Process powershell.exe -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $psCommand
+        Write-Log "DQRKIS Client Detector started in new PowerShell window"
+        Set-Status "Ready" "DQRKIS Client Detector launched." "DONE"
     } catch {
-        Write-Log "Error in DQRKISDetector: $_"
-        Set-Status "Error" "Failed to run DQRKIS Detector" "ERROR"
+        $errorMsg = $_.Exception.Message
+        Write-Log "Error in DQRKISDetector: $errorMsg"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
+        Set-Status "Error" "DQRKISDetector failed: $errorMsg" "ERROR"
+    }
+}
+
+function Run-JournalTrace {
+    Write-Log "Starting Journal Trace Analyzer..."
+    Set-Status "Running" "Journal Trace - Checking for installed version..." "BUSY"
+    try {
+        $installPath = Join-Path $global:installDir "Analysis\JournalTrace.exe"
+        if (Test-Path $installPath) {
+            Write-Log "JournalTrace.exe found, launching..."
+            Start-Process $installPath
+            Set-Status "Ready" "JournalTrace launched" "DONE"
+        } else {
+            Write-Log "JournalTrace.exe not found. Downloading..."
+            $downloadUrl = "https://github.com/ponei/JournalTrace/releases/download/1.0/JournalTrace.exe"
+            $tempPath = Join-Path $env:TEMP "JournalTrace.exe"
+            try {
+                Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -UseBasicParsing
+                $dir = Join-Path $global:installDir "Analysis"
+                if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+                Move-Item -Path $tempPath -Destination $installPath -Force
+                Write-Log "Download complete: $installPath"
+                Start-Process $installPath
+                Set-Status "Ready" "JournalTrace downloaded and launched" "DONE"
+            } catch {
+                Write-Log "Failed to download JournalTrace.exe: $_"
+                Set-Status "Error" "Failed to download JournalTrace" "ERROR"
+            }
+        }
+    } catch {
+        $errorMsg = $_.Exception.Message
+        Write-Log "Error in JournalTrace: $errorMsg"
+        Set-Status "Error" "JournalTrace failed: $errorMsg" "ERROR"
     }
 }
 
@@ -4593,7 +3919,6 @@ Read-Host "Press Enter to exit"
 # TOOL DATABASE - COMPLETE MERGED
 # ==============================================================================
 $ToolData = @(
-    # --- NirSoft ---
     [PSCustomObject]@{ Name="WinPrefetchView_x64.zip";      Category="NirSoft";      Type="zip"; Author="NirSoft"; URL="https://www.nirsoft.net/utils/winprefetchview-x64.zip"; Description="View prefetch files" },
     [PSCustomObject]@{ Name="LastActivityView.zip";          Category="NirSoft";      Type="zip"; Author="NirSoft"; URL="https://www.nirsoft.net/utils/lastactivityview.zip"; Description="List recent user activity" },
     [PSCustomObject]@{ Name="UsbDriveLog.zip";              Category="NirSoft";      Type="zip"; Author="NirSoft"; URL="https://www.nirsoft.net/utils/usbdrivelog.zip"; Description="Show USB drive history" },
@@ -4604,7 +3929,6 @@ $ToolData = @(
     [PSCustomObject]@{ Name="JumpListsView.zip";            Category="NirSoft";      Type="zip"; Author="NirSoft"; URL="https://www.nirsoft.net/utils/jumplistsview.zip"; Description="Jump list history" },
     [PSCustomObject]@{ Name="Clipboardic.zip";              Category="NirSoft";      Type="zip"; Author="NirSoft"; URL="https://www.nirsoft.net/utils/clipboardic.zip"; Description="Clipboard history viewer" },
     
-    # --- Eric Zimmerman ---
     [PSCustomObject]@{ Name="TimelineExplorer.zip";          Category="EricZimmerman"; Type="zip"; Author="Eric Zimmerman"; URL="https://download.ericzimmermanstools.com/net9/TimelineExplorer.zip"; Description="Timeline analysis" },
     [PSCustomObject]@{ Name="SrumECmd.zip";                 Category="EricZimmerman"; Type="zip"; Author="Eric Zimmerman"; URL="https://download.ericzimmermanstools.com/SrumECmd.zip"; Description="SRUM database parser" },
     [PSCustomObject]@{ Name="AmcacheParser.zip";            Category="EricZimmerman"; Type="zip"; Author="Eric Zimmerman"; URL="https://download.ericzimmermanstools.com/AmcacheParser.zip"; Description="Amcache analysis tool" },
@@ -4617,7 +3941,6 @@ $ToolData = @(
     [PSCustomObject]@{ Name="RecentFileCacheParser.zip";    Category="EricZimmerman"; Type="zip"; Author="Eric Zimmerman"; URL="https://download.ericzimmermanstools.com/net9/RecentFileCacheParser.zip"; Description="Recent file cache parser" },
     [PSCustomObject]@{ Name="ShellBagsExplorer.zip";        Category="EricZimmerman"; Type="zip"; Author="Eric Zimmerman"; URL="https://download.ericzimmermanstools.com/net9/ShellBagsExplorer.zip"; Description="Shell bags explorer" },
     
-    # --- Spokwn ---
     [PSCustomObject]@{ Name="BAMParser.exe";                Category="Spokwn";       Type="exe"; Author="spokwn"; URL="https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe"; Description="BAM record parser" },
     [PSCustomObject]@{ Name="PrefetchParser.exe";           Category="Spokwn";       Type="exe"; Author="spokwn"; URL="https://github.com/spokwn/prefetch-parser/releases/download/v1.5.5/PrefetchParser.exe"; Description="Prefetch parser" },
     [PSCustomObject]@{ Name="ProcessParser.exe";            Category="Spokwn";       Type="exe"; Author="spokwn"; URL="https://github.com/spokwn/process-parser/releases/download/v0.5.5/ProcessParser.exe"; Description="Process information parser" },
@@ -4629,12 +3952,10 @@ $ToolData = @(
     [PSCustomObject]@{ Name="BamDeletedKeys.exe";           Category="Spokwn";       Type="exe"; Author="spokwn"; URL="https://github.com/spokwn/BamDeletedKeys/releases/download/v1.0/BamDeletedKeys.exe"; Description="Deleted BAM records" },
     [PSCustomObject]@{ Name="ActivitiesCache.exe";          Category="Spokwn";       Type="exe"; Author="spokwn"; URL="https://github.com/spokwn/ActivitiesCache-execution/releases/latest"; Description="Activities cache execution" },
     
-    # --- Echo ---
     [PSCustomObject]@{ Name="Echo-Journal.exe";             Category="Echo";         Type="exe"; Author="Echo"; URL="https://github.com/Echo-Anticheat/Echo-Journal/raw/main/echo-journal.exe"; Description="Journal analysis tool" },
     [PSCustomObject]@{ Name="UserAssist.exe";               Category="Echo";         Type="exe"; Author="Echo"; URL="https://github.com/korkusuzadX/TR-SS-AutoDownloader/raw/main/echo%20tools/echo-userassist.exe"; Description="UserAssist registry viewer" },
     [PSCustomObject]@{ Name="UsbTool.exe";                  Category="Echo";         Type="exe"; Author="Echo"; URL="https://github.com/korkusuzadX/TR-SS-AutoDownloader/raw/main/echo%20tools/echo-usb.exe"; Description="USB record analysis" },
     
-    # --- OrbDiff ---
     [PSCustomObject]@{ Name="pv++.exe";                     Category="OrbDiff";      Type="exe"; Author="Orbdiff"; URL="https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.6/pv++.exe"; Description="Detailed Prefetch analyzer" },
     [PSCustomObject]@{ Name="AmcacheParser.exe";            Category="OrbDiff";      Type="exe"; Author="Orbdiff"; URL="https://github.com/Orbdiff/AmcacheParser/releases/download/v1.0/AmcacheParser.exe"; Description="Detailed Amcache analyzer" },
     [PSCustomObject]@{ Name="JARParser.exe";                Category="OrbDiff";      Type="exe"; Author="Orbdiff"; URL="https://github.com/Orbdiff/JARParser/releases/download/v1.2/JARParser.exe"; Description="JAR scanner" },
@@ -4649,63 +3970,51 @@ $ToolData = @(
     [PSCustomObject]@{ Name="OrbDiff-CheckDeletedUSN.exe";  Category="OrbDiff";      Type="exe"; Author="Orbdiff"; URL="https://github.com/Orbdiff/CheckDeletedUSN/releases/latest"; Description="Deleted USN check" },
     [PSCustomObject]@{ Name="OrbDiff-StringsParser.exe";    Category="OrbDiff";      Type="exe"; Author="Orbdiff"; URL="https://github.com/Orbdiff/StringsParser/releases/latest"; Description="Strings parser" },
     
-    # --- RedLotus ---
     [PSCustomObject]@{ Name="RedLotusModAnalyzer.exe";      Category="RedLotus";     Type="exe"; Author="ItzIceHere"; URL="https://github.com/ItzIceHere/RedLotus-Mod-Analyzer/releases/download/RL/RedLotusModAnalyzer.exe"; Description="Mod analysis tool" },
     [PSCustomObject]@{ Name="RedLotusAltChecker.exe";       Category="RedLotus";     Type="exe"; Author="ItzIceHere"; URL="https://github.com/ItzIceHere/RedLotusAltChecker/releases/download/RL/RedLotusAltChecker.exe"; Description="Alt account checker" },
     [PSCustomObject]@{ Name="RedLotusTaskSentinel.exe";     Category="RedLotus";     Type="exe"; Author="ItzIceHere"; URL="https://github.com/ItzIceHere/RedLotus-Task-Sentinel/releases/download/RL/RedLotusTaskSentinel.exe"; Description="Task monitor sentinel" },
     
-    # --- TRSSCommunity ---
     [PSCustomObject]@{ Name="PathDuzenleyicisiV2.exe";      Category="TRSSCommunity"; Type="exe"; Author="TRSSCommunity"; URL="https://github.com/trSScommunity/PathDuzenleyiciV2/raw/refs/heads/main/PathDuzenleyicisiV2.exe"; Description="Path organizer v2" },
     [PSCustomObject]@{ Name="MzHunter.exe";                 Category="TRSSCommunity"; Type="exe"; Author="TRSSCommunity"; URL="https://github.com/trSScommunity/MZHunter/raw/refs/heads/main/MzHunter.exe"; Description="MZ header scanner" },
     [PSCustomObject]@{ Name="MandarinTool.jar";             Category="TRSSCommunity"; Type="jar"; Author="TRSSCommunity"; URL="https://github.com/Mehmetyll/Mandarin-Tool/releases/download/Mandarin-Tool/MandarinTool.jar"; Description="Multi SS tool / JAR decompiler" },
     
-    # --- Magnet ---
     [PSCustomObject]@{ Name="MagnetEncryptedDiskDetector.exe"; Category="Magnet";    Type="exe"; Author="Magnet"; URL="https://go.magnetforensics.com/e/52162/MagnetEncryptedDiskDetector/kpt9bg/1663239667/h/LtXFtTL-Soawv5C1oL3BIEghi7e1Lx93yesZLR--Ok0"; Description="Encrypted disk detector" },
     [PSCustomObject]@{ Name="MRCv120.exe";                  Category="Magnet";       Type="exe"; Author="Magnet"; URL="https://go.magnetforensics.com/e/52162/mail-utm-campaign-UTMC-0000044/llr4bg/1663358653/h/4kZ9Y4i2yPRqBzuQMrywA_v5bfkpG3rG8gEiSWrYU70"; Description="RAM dump tool" },
     
-    # --- Forensics ---
     [PSCustomObject]@{ Name="FTK_Imager_4.7.1.exe";         Category="Forensics";    Type="exe"; Author="AccessData"; URL="https://archive.org/download/access-data-ftk-imager-4.7.1/AccessData_FTK_Imager_4.7.1.exe"; Description="Disk imaging tool" },
     [PSCustomObject]@{ Name="hayabusa-3.6.0-win-aarch64.zip"; Category="Forensics";  Type="zip"; Author="Yamato-Security"; URL="https://github.com/Yamato-Security/hayabusa/releases/download/v3.6.0/hayabusa-3.6.0-win-aarch64.zip"; Description="Windows event log analyzer" },
     [PSCustomObject]@{ Name="Velocidace.exe";               Category="Forensics";    Type="exe"; Author="Velocidex"; URL="https://github.com/Velocidex/velociraptor/releases/download/v0.75/velociraptor-v0.75.1-windows-amd64.exe"; Description="Digital forensics platform" },
     
-    # --- SystemTools ---
     [PSCustomObject]@{ Name="SystemInformer_Canary_Setup.exe"; Category="SystemTools"; Type="exe"; Author="winsiderss"; URL="https://github.com/winsiderss/si-builds/releases/download/3.2.25275.112/systeminformer-build-canary-setup.exe"; Description="Advanced system monitor" },
     [PSCustomObject]@{ Name="Everything-Setup.exe";         Category="SystemTools";  Type="exe"; Author="voidtools"; URL="https://www.voidtools.com/Everything-1.4.1.1032.x64-Setup.exe"; Description="Instant file search engine" },
     [PSCustomObject]@{ Name="ProcessHacker-Setup.exe";      Category="SystemTools";  Type="exe"; Author="winsiderss"; URL="https://sourceforge.net/projects/processhacker/files/latest/download"; Description="Process hacker" },
     
-    # --- Analysis ---
     [PSCustomObject]@{ Name="InjGen.exe";                   Category="Analysis";     Type="exe"; Author="NotRequiem"; URL="https://github.com/NotRequiem/InjGen/releases/download/v2.0/InjGen.exe"; Description="Injection detection tool" },
     [PSCustomObject]@{ Name="Luyten.exe";                   Category="Analysis";     Type="exe"; Author="deathmarine"; URL="https://github.com/deathmarine/Luyten/releases/download/v0.5.4_Rebuilt_with_Latest_depenencies/luyten-0.5.4.exe"; Description="Java decompiler" },
     [PSCustomObject]@{ Name="dpsanalyzer.exe";              Category="Analysis";     Type="exe"; Author="nay-cat"; URL="https://github.com/nay-cat/dpsanalyzer/releases/download/1.3/dpsanalyzer.exe"; Description="DPS analyzer" },
     [PSCustomObject]@{ Name="DIE_engine_portable.zip";      Category="Analysis";     Type="zip"; Author="horsicq"; URL="https://github.com/horsicq/DIE-engine/releases/download/3.09/die_win64_portable_3.09_x64.zip"; Description="Detect-It-Easy PE analyzer" },
     
-    # --- Misc ---
     [PSCustomObject]@{ Name="Jarabel.Light.exe";            Category="Misc";         Type="exe"; Author="nay-cat"; URL="https://github.com/nay-cat/Jarabel/releases/download/light/Jarabel.Light.exe"; Description="JAR analysis tool" },
     [PSCustomObject]@{ Name="Unicode.exe";                  Category="Misc";         Type="exe"; Author="RRancio"; URL="https://github.com/RRancio/Exec/raw/main/Files/Unicode.exe"; Description="Unicode character analyzer" },
     [PSCustomObject]@{ Name="CachedProgramsList.exe";       Category="Misc";         Type="exe"; Author="ponei"; URL="https://github.com/ponei/CachedProgramsList/releases/download/1.1/CachedProgramsList.exe"; Description="Cache program list" },
     [PSCustomObject]@{ Name="TimeChangeDetect.exe";         Category="Misc";         Type="exe"; Author="santiagolin"; URL="https://github.com/santiagolin/TimeChangeDetect/releases/download/1.0/TimeChangeDetect.exe"; Description="System time change detector" },
     [PSCustomObject]@{ Name="HardlinkFinder.exe";           Category="Misc";         Type="exe"; Author="praiselily"; URL="https://github.com/praiselily/HardlinkFinder/releases/download/Tools/hardlink.exe"; Description="Hardlink detection" },
     
-    # --- Meow Tools ---
     [PSCustomObject]@{ Name="MeowNovowareFucker.exe";       Category="Meow";         Type="exe"; Author="MeowTonynoh"; URL="https://github.com/MeowTonynoh/MeowNovowareFucker/raw/refs/heads/main/MeowNovowareFucker.exe"; Description="Novoware client detector" },
     [PSCustomObject]@{ Name="MeowDoomsdayFucker.exe";       Category="Meow";         Type="exe"; Author="MeowTonynoh"; URL="https://github.com/MeowTonynoh/MeowDoomsdayFucker/raw/refs/heads/main/MeowDoomsdayFucker.exe"; Description="Doomsday client detector" },
     [PSCustomObject]@{ Name="MeowResolver.exe";             Category="Meow";         Type="exe"; Author="MeowTonynoh"; URL="https://github.com/MeowTonynoh/MeowResolver/releases/latest"; Description="Meow resolver" },
     [PSCustomObject]@{ Name="MeowImportsChecker.exe";       Category="Meow";         Type="exe"; Author="MeowTonynoh"; URL="https://github.com/MeowTonynoh/MeowImportsChecker/releases/latest"; Description="Imports checker" },
     
-    # --- Praiselily ---
     [PSCustomObject]@{ Name="PSHunter.exe";                 Category="Praiselily";   Type="exe"; Author="praiselily"; URL="https://github.com/praiselily/PSHunter/releases/latest"; Description="PS hunter tool" },
     [PSCustomObject]@{ Name="AltDetector.exe";              Category="Praiselily";   Type="exe"; Author="praiselily"; URL="https://github.com/praiselily/AltDetector/releases/latest"; Description="Alt account detector" },
     
-    # --- TeslaPro ---
     [PSCustomObject]@{ Name="TeslaPro-MacroFinder.exe";     Category="TeslaPro";     Type="exe"; Author="TeslaPro"; URL="https://github.com/TeslaPros/TeslaProMacroFinder/releases/latest"; Description="Macro finder tool" },
     [PSCustomObject]@{ Name="TeslaPro-DoomsdayDetector.exe"; Category="TeslaPro";    Type="exe"; Author="TeslaPro"; URL="https://github.com/TeslaPros/DoomsdayDetector/releases/latest"; Description="Doomsday detector" },
     [PSCustomObject]@{ Name="TeslaPro-VPNFinder.exe";       Category="TeslaPro";     Type="exe"; Author="TeslaPro"; URL="https://github.com/TeslaPros/VPNChecker/releases/latest"; Description="VPN finder" },
     [PSCustomObject]@{ Name="TeslaPro-GhostClientFucker.exe"; Category="TeslaPro";   Type="exe"; Author="TeslaPro"; URL="https://github.com/TeslaPros/GhostClientFucker/releases/latest"; Description="Ghost client detector" },
     
-    # --- Xeinn ---
     [PSCustomObject]@{ Name="Xeinn-SSTools.exe";            Category="Xeinn";        Type="exe"; Author="Xeinn"; URL="https://github.com/Xeinn-Software/Xeinn-SS-Tools-Downloader/releases/latest"; Description="Xeinn SS tools" },
     
-    # --- Dependencies ---
     [PSCustomObject]@{ Name="NET-9.0-SDK.exe";              Category="Dependencies"; Type="exe"; Author="Microsoft"; URL="https://dotnet.microsoft.com/en-us/download/dotnet/9.0"; Description=".NET 9.0 SDK" },
     [PSCustomObject]@{ Name="NET-10.0-Runtime.exe";         Category="Dependencies"; Type="exe"; Author="Microsoft"; URL="https://dotnet.microsoft.com/en-us/download/dotnet/10.0"; Description=".NET 10.0 Runtime" },
     [PSCustomObject]@{ Name="VC_Redist.exe";                Category="Dependencies"; Type="exe"; Author="Microsoft"; URL="https://aka.ms/vs/17/release/vc_redist.x64.exe"; Description="Visual C++ Redistributable" }
@@ -4715,12 +4024,9 @@ $ToolData = @(
 # SCRIPT DATA - COMPLETE MERGED SCRIPTS
 # ==============================================================================
 $ScriptData = @(
-    # --- TRSS Community ---
     [PSCustomObject]@{ Name="TR SS Auto Downloader"; Author="korkusuzadX"; URL="https://raw.githubusercontent.com/korkusuzadX/TR-SS-AutoDownloader/main/TR_SS_Auto_Downloader.ps1"; Description="Turkish SS community auto downloader" },
     [PSCustomObject]@{ Name="TR SS REG Checker"; Author="boboalover"; URL="https://github.com/Boboalover/TRSS-Simple-Registry-Checker/raw/refs/heads/main/TRSS-regchecker.ps1"; Description="Registry checker" },
     [PSCustomObject]@{ Name="TR SS Macro Checker"; Author="boboalover"; URL="https://github.com/Boboalover/TRSS-mouse-macro-checker/raw/refs/heads/main/TRSSmacroChecker.ps1"; Description="Macro checker" },
-    
-    # --- Praiselily ---
     [PSCustomObject]@{ Name="Faker Detection (HotspotLogs)"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/WeHateFakers/refs/heads/main/HotspotLogs.ps1"; Description="Faker detection tool" },
     [PSCustomObject]@{ Name="JAR Scanner"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/JARScanner/refs/heads/main/JARScanner.ps1"; Description="JAR scanner" },
     [PSCustomObject]@{ Name="Service Enabler"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/Service-Enabler.ps1"; Description="Service enabler" },
@@ -4728,38 +4034,21 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="Common Directories Scanner"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/CommonDirectories.ps1"; Description="Scan common directories" },
     [PSCustomObject]@{ Name="Harddisk Converter"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/HarddiskConverter.ps1"; Description="Harddisk converter" },
     [PSCustomObject]@{ Name="Signed Scheduled Tasks"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/Signed-Scheduled-Tasks.ps1"; Description="Signed scheduled tasks" },
-    
-    # --- Spokwn ---
     [PSCustomObject]@{ Name="BAM Parser"; Author="spokwn"; URL="https://raw.githubusercontent.com/spokwn/powershells/refs/heads/main/bamparser.ps1"; Description="BAM record parser" },
     [PSCustomObject]@{ Name="AnyDesk Installer"; Author="spokwn"; URL="https://raw.githubusercontent.com/spokwn/powershells/main/anydesk.ps1"; Description="AnyDesk installer" },
-    
-    # --- zedoonvm1 ---
     [PSCustomObject]@{ Name="DoomsDay Finder v2"; Author="zedoonvm1"; URL="https://raw.githubusercontent.com/zedoonvm1/powershell-scripts/refs/heads/main/DoomsDayDetector.ps1"; Description="Find DoomsDay client" },
-    
-    # --- MeowTonynoh ---
     [PSCustomObject]@{ Name="Meow Mod Analyzer"; Author="MeowTonynoh"; URL="https://raw.githubusercontent.com/MeowTonynoh/MeowModAnalyzer/main/MeowModAnalyzer.ps1"; Description="Analyze Minecraft mods" },
-    
-    # --- HadronCollision ---
     [PSCustomObject]@{ Name="Habibi Mod Analyzer"; Author="HadronCollision"; URL="https://raw.githubusercontent.com/HadronCollision/PowershellScripts/refs/heads/main/HabibiModAnalyzer.ps1"; Description="Habibi mod detection" },
-    
-    # --- IlleUco ---
     [PSCustomObject]@{ Name="BAM Robado Checker"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/BamRobadoIlleUco.ps1"; Description="Check stolen BAM records" },
     [PSCustomObject]@{ Name="Recycle Bin Checker"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/RecycleBinChecker.ps1"; Description="Recycle bin analyzer" },
     [PSCustomObject]@{ Name="Service Checker"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/ServiceChecker.ps1"; Description="Critical service checker" },
     [PSCustomObject]@{ Name="USB Events Viewer"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/USBEvents.ps1"; Description="USB history viewer" },
     [PSCustomObject]@{ Name="RedLotus BAM"; Author="IlleUco"; URL="https://raw.githubusercontent.com/PureIntent/ScreenShare/main/RedLotusBam.ps1"; Description="RedLotus BAM inspection" },
-    
-    # --- RedLotus ---
     [PSCustomObject]@{ Name="Prefetch Integrity Analyzer"; Author="Bacanoicua/RedLotus"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/PrefetchAnalyzer.ps1"; Description="Prefetch integrity analysis" },
     [PSCustomObject]@{ Name="RedLotus Script Runner"; Author="RedLotus"; URL="https://raw.githubusercontent.com/RedLotusForensics/tool/main/ScriptRunner.ps1"; Description="Run RedLotus scripts" },
     [PSCustomObject]@{ Name="RedLotus Collector"; Author="RedLotus"; URL="https://raw.githubusercontent.com/RedLotusForensics/tool/main/Collector.ps1"; Description="RedLotus forensic collector" },
-    
-    # --- 3ntr ---
     [PSCustomObject]@{ Name="System Cleanup"; Author="3ntr"; URL="https://raw.githubusercontent.com/3ntr/SS-Tools/main/SystemCleanup.ps1"; Description="Clean temp files, prefetch, recycle bin" },
     [PSCustomObject]@{ Name="Recent Files Finder"; Author="3ntr"; URL="https://raw.githubusercontent.com/3ntr/SS-Tools/main/RecentFilesFinder.ps1"; Description="Find recently accessed files" },
-    [PSCustomObject]@{ Name="Journal Trace Analyzer"; Author="3ntr/Spokwn"; URL="https://raw.githubusercontent.com/3ntr/SS-Tools/main/JournalTrace.ps1"; Description="USN Journal trace and analysis" },
-    
-    # --- TeslaPro Scripts ---
     [PSCustomObject]@{ Name="TeslaPro Macro Finder"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/TeslaProMacroFinder/main/TeslaProMacroFinder_V3.ps1"; Description="Macro finder tool" },
     [PSCustomObject]@{ Name="TeslaPro Doomsday Detector"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/DoomsdayDetector/main/DoomsdayClientDetectorV3.ps1"; Description="Doomsday detector" },
     [PSCustomObject]@{ Name="TeslaPro VPN Finder"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/VPNChecker/main/VPNFinder.ps1"; Description="VPN finder" },
@@ -4770,8 +4059,6 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="TeslaPro QuickCheck Scanner"; Author="TeslaPro"; URL="https://pastebin.com/raw/HGLwy7XA"; Description="QuickCheck scanner" },
     [PSCustomObject]@{ Name="TeslaPro Velaris Detector"; Author="Va2lyR"; URL="https://raw.githubusercontent.com/Va2lyR/-TeslaProSS-Toolv2/refs/heads/main/tools/Velaris-Detector.ps1"; Description="Velaris detector" },
     [PSCustomObject]@{ Name="TeslaPro Prestige Finder"; Author="Sellgui"; URL="https://raw.githubusercontent.com/Sellgui/Egitserpragger/refs/heads/main/EgitserpRaper.ps1"; Description="Prestige finder" },
-    
-    # --- Local Scanners (FIXED) ---
     [PSCustomObject]@{ Name="Doomsday Finder v3"; Author="TeslaPro"; URL="LOCAL"; Description="Doomsday client scanner v3" },
     [PSCustomObject]@{ Name="Ghost Client Scanner"; Author="TeslaPro"; URL="LOCAL"; Description="Ghost client scanner" },
     [PSCustomObject]@{ Name="Cyemer Scanner"; Author="Community"; URL="LOCAL"; Description="Cyemer forensic scanner" },
@@ -4779,22 +4066,62 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="Heated Mod Analyzer"; Author="Heated"; URL="LOCAL"; Description="Advanced mod analyzer with deep scan" },
     [PSCustomObject]@{ Name="Hacked Clients Detector"; Author="Community"; URL="LOCAL"; Description="Detect hacked Minecraft clients" },
     [PSCustomObject]@{ Name="DQRKIS Client Detector"; Author="cheesecatlol"; URL="https://raw.githubusercontent.com/cheesecatlol/DQRKIS-FUCKER/refs/heads/main/DqrkisFucker.ps1"; Description="DQRKIS client detection tool" },
-    
+    [PSCustomObject]@{ Name="Journal Trace Analyzer"; Author="Spokwn"; URL="LOCAL"; Description="USN Journal trace and analysis (Auto-downloads EXE)" },
     [PSCustomObject]@{ Name="Macro Detector"; Author="Nickk196"; URL="https://raw.githubusercontent.com/Nickk196/MacroDetector/main/MacroDetector.ps1"; Description="Detect macro software and scripts" }
+)
+
+# ==============================================================================
+# TUTORIAL DATA - INTERACTIVE STEPS
+# ==============================================================================
+$TutorialActions = @(
+    @{ Step = 1; Description = "Open Recent Files (shell:recent)"; Type = "Command"; Name = "Recent Files" },
+    @{ Step = 2; Description = "Run System Cleanup (temp, prefetch, recycle bin)"; Type = "Script"; Name = "System Cleanup" },
+    @{ Step = 3; Description = "Open Prefetch Folder (C:\Windows\Prefetch)"; Type = "Command"; Name = "Prefetch Folder" },
+    @{ Step = 4; Description = "Run Meow Mod Analyzer"; Type = "Script"; Name = "Meow Mod Analyzer" },
+    @{ Step = 5; Description = "Run Habibi Mod Analyzer"; Type = "Script"; Name = "Habibi Mod Analyzer" },
+    @{ Step = 6; Description = "Run Ghost Client Scanner"; Type = "Script"; Name = "Ghost Client Scanner" },
+    @{ Step = 7; Description = "Run Doomsday Finder v3 (USN Journal)"; Type = "Script"; Name = "Doomsday Finder v3" },
+    @{ Step = 8; Description = "Run Velaris Scanner"; Type = "Script"; Name = "Velaris Scanner" },
+    @{ Step = 9; Description = "Run Cyemer Scanner"; Type = "Script"; Name = "Cyemer Scanner" },
+    @{ Step = 10; Description = "Run DQRKIS Client Detector"; Type = "Script"; Name = "DQRKIS Client Detector" },
+    @{ Step = 11; Description = "Run Hacked Clients Detector"; Type = "Script"; Name = "Hacked Clients Detector" },
+    @{ Step = 12; Description = "Run Heated Mod Analyzer"; Type = "Script"; Name = "Heated Mod Analyzer" },
+    @{ Step = 13; Description = "Run TeslaPro Prestige Finder"; Type = "Script"; Name = "TeslaPro Prestige Finder" },
+    @{ Step = 14; Description = "Run TeslaPro Injector Detector"; Type = "Script"; Name = "TeslaPro Injector Detector" },
+    @{ Step = 15; Description = "Run Journal Trace Analyzer"; Type = "Script"; Name = "Journal Trace Analyzer" },
+    @{ Step = 16; Description = "Run USB Events Viewer"; Type = "Script"; Name = "USB Events Viewer" },
+    @{ Step = 17; Description = "Check the Activity Log below for results"; Type = "Info" }
+)
+
+$TutorialChecklist = @(
+    "☑️ Recent Files",
+    "☑️ System Cleanup",
+    "☑️ Prefetch",
+    "☑️ Meow Mod Analyzer",
+    "☑️ Habibi Mod Analyzer",
+    "☑️ Ghost Client Scanner",
+    "☑️ Doomsday Finder v3",
+    "☑️ Velaris Scanner",
+    "☑️ Cyemer Scanner",
+    "☑️ DQRKIS Detector",
+    "☑️ Hacked Clients Detector",
+    "☑️ Heated Mod Analyzer",
+    "☑️ Prestige Finder",
+    "☑️ Injector Detector",
+    "☑️ Journal Trace",
+    "☑️ USB Events Viewer",
+    "☑️ Review Log"
 )
 
 # ==============================================================================
 # COMMANDS DATA - Win+R Shortcuts
 # ==============================================================================
 $CommandData = @(
-    # shell: commands (these work with explorer.exe shell: prefix)
     [PSCustomObject]@{ Name="Recent Files"; Command="shell:recent"; Description="Open recent files folder"; Icon="📁" },
     [PSCustomObject]@{ Name="Startup Folder"; Command="shell:startup"; Description="Open startup programs folder"; Icon="🚀" },
     [PSCustomObject]@{ Name="Send To"; Command="shell:sendto"; Description="Open Send To folder"; Icon="📤" },
     [PSCustomObject]@{ Name="Start Menu"; Command="shell:start menu"; Description="Open Start Menu folder"; Icon="🏁" },
     [PSCustomObject]@{ Name="Common Startup"; Command="shell:common startup"; Description="Open all users startup"; Icon="🚀" },
-    
-    # Environment variables (these work with [Environment]::ExpandEnvironmentVariables)
     [PSCustomObject]@{ Name="AppData (Roaming)"; Command="%APPDATA%"; Description="Open roaming app data"; Icon="📂" },
     [PSCustomObject]@{ Name="Local AppData"; Command="%LOCALAPPDATA%"; Description="Open local app data"; Icon="📂" },
     [PSCustomObject]@{ Name="Program Files"; Command="%ProgramFiles%"; Description="Open Program Files"; Icon="💻" },
@@ -4808,18 +4135,12 @@ $CommandData = @(
     [PSCustomObject]@{ Name="Pictures"; Command="%USERPROFILE%\Pictures"; Description="Open Pictures folder"; Icon="🖼️" },
     [PSCustomObject]@{ Name="Music"; Command="%USERPROFILE%\Music"; Description="Open Music folder"; Icon="🎵" },
     [PSCustomObject]@{ Name="Videos"; Command="%USERPROFILE%\Videos"; Description="Open Videos folder"; Icon="🎬" },
-    
-    # Direct paths (prefetch)
     [PSCustomObject]@{ Name="Prefetch Folder"; Command="C:\Windows\Prefetch"; Description="Open Windows prefetch folder"; Icon="⚡" },
-    
-    # MMC/CPL commands
     [PSCustomObject]@{ Name="Network Connections"; Command="ncpa.cpl"; Description="Open network connections"; Icon="🌐" },
     [PSCustomObject]@{ Name="Device Manager"; Command="devmgmt.msc"; Description="Open Device Manager"; Icon="🔧" },
     [PSCustomObject]@{ Name="Disk Management"; Command="diskmgmt.msc"; Description="Open Disk Management"; Icon="💾" },
     [PSCustomObject]@{ Name="Event Viewer"; Command="eventvwr.msc"; Description="Open Event Viewer"; Icon="📊" },
     [PSCustomObject]@{ Name="Services"; Command="services.msc"; Description="Open Services manager"; Icon="⚙️" },
-    
-    # System tools
     [PSCustomObject]@{ Name="Registry Editor"; Command="regedit"; Description="Open Registry Editor"; Icon="📝" },
     [PSCustomObject]@{ Name="Task Manager"; Command="taskmgr"; Description="Open Task Manager"; Icon="📊" },
     [PSCustomObject]@{ Name="Control Panel"; Command="control"; Description="Open Control Panel"; Icon="🎛️" },
@@ -4865,7 +4186,7 @@ $CmdCommandData = @(
 )
 
 # ==============================================================================
-# TOOL BUTTON FUNCTIONS (with fixed hover)
+# TOOL BUTTON FUNCTIONS
 # ==============================================================================
 function New-ToolButton {
     param($Tool)
@@ -4879,19 +4200,16 @@ function New-ToolButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Tool
-
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
     $scaleTransform.ScaleX = 1
     $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = $Tool.Name
     $nameBlock.FontWeight = "SemiBold"
@@ -4903,7 +4221,6 @@ function New-ToolButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-
     $author = if ($Tool.Author -and $Tool.Author -ne "") { $Tool.Author } else { "Unknown" }
     $authorBorder = New-Object System.Windows.Controls.Border
     $authorBorder.Background = "#1A1A2E"
@@ -4911,7 +4228,6 @@ function New-ToolButton {
     $authorBorder.HorizontalAlignment = "Center"
     $authorBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($authorBorder, 1)
-
     $authorBlock = New-Object System.Windows.Controls.TextBlock
     $authorBlock.Text = "✦ by $author ✦"
     $authorBlock.FontSize = 8
@@ -4921,14 +4237,12 @@ function New-ToolButton {
     $authorBlock.VerticalAlignment = "Center"
     $authorBorder.Child = $authorBlock
     [void]$grid.Children.Add($authorBorder)
-
     $tagBorder = New-Object System.Windows.Controls.Border
     $tagBorder.Background = "#141420"
     $tagBorder.Padding = "6,1"
     $tagBorder.HorizontalAlignment = "Right"
     $tagBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($tagBorder, 2)
-
     $tagText = New-Object System.Windows.Controls.TextBlock
     $tagText.Text = if ($Tool.Type -eq "launcher") { "LAUNCHER" } else { $Tool.Type.ToUpper() }
     $tagText.FontSize = 7
@@ -4936,9 +4250,7 @@ function New-ToolButton {
     $tagText.Foreground = "#06B6D4"
     $tagBorder.Child = $tagText
     [void]$grid.Children.Add($tagBorder)
-
     $btn.Content = $grid
-
     $btn.Add_MouseEnter({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -4951,7 +4263,6 @@ function New-ToolButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_MouseLeave({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -4964,7 +4275,6 @@ function New-ToolButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $toolData = $clickedBtn.Tag
@@ -5029,19 +4339,16 @@ function New-ScriptButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Script
-
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
     $scaleTransform.ScaleX = 1
     $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = if ($Script.URL -eq "LOCAL") { "🔧 $($Script.Name)" } else { $Script.Name }
     $nameBlock.FontWeight = "SemiBold"
@@ -5053,14 +4360,12 @@ function New-ScriptButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-
     $authorBorder = New-Object System.Windows.Controls.Border
     $authorBorder.Background = "#1A1A2E"
     $authorBorder.Padding = "6,2"
     $authorBorder.HorizontalAlignment = "Center"
     $authorBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($authorBorder, 1)
-
     $authorBlock = New-Object System.Windows.Controls.TextBlock
     $authorBlock.Text = "✦ by $($Script.Author) ✦"
     $authorBlock.FontSize = 8
@@ -5070,14 +4375,12 @@ function New-ScriptButton {
     $authorBlock.VerticalAlignment = "Center"
     $authorBorder.Child = $authorBlock
     [void]$grid.Children.Add($authorBorder)
-
     $tagBorder = New-Object System.Windows.Controls.Border
     $tagBorder.Background = "#141420"
     $tagBorder.Padding = "6,1"
     $tagBorder.HorizontalAlignment = "Right"
     $tagBorder.Margin = "0,3,0,0"
     [System.Windows.Controls.Grid]::SetRow($tagBorder, 2)
-
     $tagText = New-Object System.Windows.Controls.TextBlock
     $tagText.Text = if ($Script.URL -eq "LOCAL") { "LOCAL" } else { "PS1" }
     $tagText.FontSize = 7
@@ -5085,9 +4388,7 @@ function New-ScriptButton {
     $tagText.Foreground = if ($Script.URL -eq "LOCAL") { "#FF6B6B" } else { "#06B6D4" }
     $tagBorder.Child = $tagText
     [void]$grid.Children.Add($tagBorder)
-
     $btn.Content = $grid
-
     $btn.Add_MouseEnter({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -5100,7 +4401,6 @@ function New-ScriptButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_MouseLeave({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -5113,7 +4413,6 @@ function New-ScriptButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $scriptData = $clickedBtn.Tag
@@ -5131,6 +4430,7 @@ function New-ScriptButton {
                     "Velaris Scanner" { Run-VelarisScanner }
                     "Heated Mod Analyzer" { Run-HeatedModAnalyzer }
                     "Hacked Clients Detector" { Run-HackedClientsDetector }
+                    "Journal Trace Analyzer" { Run-JournalTrace }
                     "DQRKIS Client Detector" { Run-DQRKISDetector }
                     default {
                         Write-Log "Unknown local script: $($scriptData.Name)"
@@ -5165,19 +4465,16 @@ function New-CommandButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $Command
-
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
     $scaleTransform.ScaleX = 1
     $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = "$($Command.Icon) $($Command.Name)"
     $nameBlock.FontWeight = "SemiBold"
@@ -5189,7 +4486,6 @@ function New-CommandButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-
     $pathBlock = New-Object System.Windows.Controls.TextBlock
     $pathBlock.Text = $Command.Command
     $pathBlock.FontSize = 8
@@ -5200,7 +4496,6 @@ function New-CommandButton {
     $pathBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($pathBlock, 1)
     [void]$grid.Children.Add($pathBlock)
-
     $descBlock = New-Object System.Windows.Controls.TextBlock
     $descBlock.Text = $Command.Description
     $descBlock.FontSize = 8
@@ -5210,9 +4505,7 @@ function New-CommandButton {
     $descBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($descBlock, 2)
     [void]$grid.Children.Add($descBlock)
-
     $btn.Content = $grid
-
     $btn.Add_MouseEnter({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -5225,7 +4518,6 @@ function New-CommandButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_MouseLeave({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -5238,7 +4530,6 @@ function New-CommandButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $cmdData = $clickedBtn.Tag
@@ -5318,19 +4609,16 @@ function New-CmdCommandButton {
     $btn.BorderBrush = "#2A2A40"
     $btn.BorderThickness = "1"
     $btn.Tag = $CmdCommand
-
     $scaleTransform = New-Object System.Windows.Media.ScaleTransform
     $scaleTransform.ScaleX = 1
     $scaleTransform.ScaleY = 1
     $btn.RenderTransform = $scaleTransform
     $btn.RenderTransformOrigin = "0.5,0.5"
-
     $grid = New-Object System.Windows.Controls.Grid
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
     $grid.Margin = "6"
-
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text = "$($CmdCommand.Icon) $($CmdCommand.Name)"
     $nameBlock.FontWeight = "SemiBold"
@@ -5342,7 +4630,6 @@ function New-CmdCommandButton {
     $nameBlock.HorizontalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetRow($nameBlock, 0)
     [void]$grid.Children.Add($nameBlock)
-
     $cmdBlock = New-Object System.Windows.Controls.TextBlock
     $cmdBlock.Text = $CmdCommand.Command
     $cmdBlock.FontSize = 8
@@ -5353,7 +4640,6 @@ function New-CmdCommandButton {
     $cmdBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($cmdBlock, 1)
     [void]$grid.Children.Add($cmdBlock)
-
     $descBlock = New-Object System.Windows.Controls.TextBlock
     $descBlock.Text = $CmdCommand.Description
     $descBlock.FontSize = 8
@@ -5363,9 +4649,7 @@ function New-CmdCommandButton {
     $descBlock.Margin = "0,2,0,0"
     [System.Windows.Controls.Grid]::SetRow($descBlock, 2)
     [void]$grid.Children.Add($descBlock)
-
     $btn.Content = $grid
-
     $btn.Add_MouseEnter({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -5378,7 +4662,6 @@ function New-CmdCommandButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_MouseLeave({
         $b = $_.Source
         $scale = $b.RenderTransform
@@ -5391,7 +4674,6 @@ function New-CmdCommandButton {
         $animY.Duration = [TimeSpan]::FromMilliseconds(150)
         $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animY)
     })
-
     $btn.Add_Click({
         $clickedBtn = $_.Source
         $cmdData = $clickedBtn.Tag
@@ -5494,7 +4776,6 @@ function New-CmdCommandButton {
             </Setter>
         </Style>
 
-        <!-- ToolBtn style to kill blue hover -->
         <Style x:Key="ToolBtn" TargetType="Button">
             <Setter Property="Background" Value="#0F0F1A"/>
             <Setter Property="Foreground" Value="#E8E8F0"/>
@@ -5537,7 +4818,6 @@ function New-CmdCommandButton {
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
                 <Border Grid.Row="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="0,0,0,1">
                     <Grid Margin="16,0">
                         <Grid.ColumnDefinitions>
@@ -5571,14 +4851,12 @@ function New-CmdCommandButton {
                     </Grid>
                 </Border>
 
-                <!-- Body -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="200"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Sidebar -->
                     <Border Grid.Column="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="0,0,1,0">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel Margin="8,12">
@@ -5592,7 +4870,6 @@ function New-CmdCommandButton {
                         </ScrollViewer>
                     </Border>
 
-                    <!-- Main Panel -->
                     <Grid Grid.Column="1" Margin="14,12,14,14">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -5603,7 +4880,6 @@ function New-CmdCommandButton {
                             <RowDefinition Height="130"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Status Bar -->
                         <Border Grid.Row="0" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="14,8">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -5620,7 +4896,6 @@ function New-CmdCommandButton {
                             </Grid>
                         </Border>
 
-                        <!-- Search Bar -->
                         <Border Grid.Row="1" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,6">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -5632,14 +4907,12 @@ function New-CmdCommandButton {
                             </Grid>
                         </Border>
 
-                        <!-- Tools Grid -->
                         <Border Grid.Row="3" Background="#0F0F1A" BorderBrush="#2A2A40" BorderThickness="1" Padding="6">
                             <ScrollViewer x:Name="CenterScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <WrapPanel x:Name="ToolsWrap" Margin="2"/>
                             </ScrollViewer>
                         </Border>
 
-                        <!-- Console -->
                         <Border Grid.Row="5" Background="#0A0A0F" BorderBrush="#2A2A40" BorderThickness="1" Padding="10,6">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -5704,7 +4977,8 @@ $categories = @(
     "NirSoft", "EricZimmerman", "Spokwn", "Echo", "OrbDiff", "RedLotus", 
     "TRSSCommunity", "Magnet", "Forensics", "SystemTools", "Analysis", "Misc",
     "Meow", "Praiselily", "TeslaPro", "Xeinn", "Dependencies",
-    "Commands", "Cmd Commands"
+    "Commands", "Cmd Commands",
+    "Tut"
 ) | Sort-Object
 
 function Set-ActiveButton {
@@ -5797,6 +5071,130 @@ function Show-Category {
             Set-ActiveButton -activeBtn $child
         }
     }
+    
+    # ==============================================================================
+    # TUT CATEGORY - INTERACTIVE STEPS
+    # ==============================================================================
+    if ($cat -eq "Tut") {
+        $tutPanel = New-Object System.Windows.Controls.StackPanel
+        $tutPanel.Margin = "10"
+        
+        $card = New-Object System.Windows.Controls.Border
+        $card.Background = "#141420"
+        $card.BorderBrush = "#2A2A40"
+        $card.BorderThickness = "1"
+        $card.Margin = "0,0,0,15"
+        $card.CornerRadius = "8"
+        $card.Padding = "15"
+        
+        $innerStack = New-Object System.Windows.Controls.StackPanel
+        
+        $titleBlock = New-Object System.Windows.Controls.TextBlock
+        $titleBlock.Text = "🔍 SCREEN SHARE TUTORIAL – Click each button to run the tool"
+        $titleBlock.FontSize = "16"
+        $titleBlock.FontWeight = "Bold"
+        $titleBlock.Foreground = "#7C3AED"
+        $titleBlock.Margin = "0,0,0,10"
+        [void]$innerStack.Children.Add($titleBlock)
+        
+        foreach ($action in $TutorialActions) {
+            $grid = New-Object System.Windows.Controls.Grid
+            $grid.ColumnDefinitions.Add((New-Object System.Windows.Controls.ColumnDefinition))
+            $grid.ColumnDefinitions.Add((New-Object System.Windows.Controls.ColumnDefinition))
+            $grid.Margin = "0,4,0,4"
+            
+            $stepText = New-Object System.Windows.Controls.TextBlock
+            $stepText.Text = "$($action.Step). $($action.Description)"
+            $stepText.FontSize = "12"
+            $stepText.Foreground = "#E8E8F0"
+            $stepText.TextWrapping = "Wrap"
+            $stepText.VerticalAlignment = "Center"
+            $stepText.Margin = "0,0,10,0"
+            [System.Windows.Controls.Grid]::SetColumn($stepText, 0)
+            [void]$grid.Children.Add($stepText)
+            
+            if ($action.Type -ne "Info") {
+                $btn = $null
+                if ($action.Type -eq "Command") {
+                    $cmdObj = $CommandData | Where-Object { $_.Name -eq $action.Name } | Select-Object -First 1
+                    if ($cmdObj) {
+                        $btn = New-CommandButton -Command $cmdObj
+                    }
+                } elseif ($action.Type -eq "Script") {
+                    $scriptObj = $ScriptData | Where-Object { $_.Name -eq $action.Name } | Select-Object -First 1
+                    if ($scriptObj) {
+                        $btn = New-ScriptButton -Script $scriptObj
+                    }
+                }
+                if ($btn) {
+                    $btn.Width = 140
+                    $btn.Height = 30
+                    $btn.FontSize = 10
+                    $btn.Margin = "5,0,0,0"
+                    $btn.HorizontalAlignment = "Right"
+                    [System.Windows.Controls.Grid]::SetColumn($btn, 1)
+                    [void]$grid.Children.Add($btn)
+                }
+            } else {
+                $badge = New-Object System.Windows.Controls.Border
+                $badge.Background = "#1A1A2E"
+                $badge.BorderBrush = "#7C3AED"
+                $badge.BorderThickness = "1"
+                $badge.CornerRadius = "4"
+                $badge.Padding = "6,2"
+                $badge.HorizontalAlignment = "Right"
+                $badge.Margin = "5,0,0,0"
+                $badgeText = New-Object System.Windows.Controls.TextBlock
+                $badgeText.Text = "📋 Manual"
+                $badgeText.Foreground = "#7C3AED"
+                $badgeText.FontSize = "10"
+                $badgeText.FontWeight = "Bold"
+                $badge.Child = $badgeText
+                [System.Windows.Controls.Grid]::SetColumn($badge, 1)
+                [void]$grid.Children.Add($badge)
+            }
+            [void]$innerStack.Children.Add($grid)
+        }
+        
+        $card.Child = $innerStack
+        [void]$tutPanel.Children.Add($card)
+        
+        $checkCard = New-Object System.Windows.Controls.Border
+        $checkCard.Background = "#141420"
+        $checkCard.BorderBrush = "#2A2A40"
+        $checkCard.BorderThickness = "1"
+        $checkCard.Margin = "0,0,0,15"
+        $checkCard.CornerRadius = "8"
+        $checkCard.Padding = "15"
+        
+        $checkStack = New-Object System.Windows.Controls.StackPanel
+        $checkTitle = New-Object System.Windows.Controls.TextBlock
+        $checkTitle.Text = "⚡ QUICK CHECKLIST"
+        $checkTitle.FontSize = "16"
+        $checkTitle.FontWeight = "Bold"
+        $checkTitle.Foreground = "#06B6D4"
+        $checkTitle.Margin = "0,0,0,8"
+        [void]$checkStack.Children.Add($checkTitle)
+        
+        foreach ($item in $TutorialChecklist) {
+            $itemBlock = New-Object System.Windows.Controls.TextBlock
+            $itemBlock.Text = $item
+            $itemBlock.FontSize = "12"
+            $itemBlock.Foreground = "#E8E8F0"
+            $itemBlock.Margin = "0,2,0,2"
+            [void]$checkStack.Children.Add($itemBlock)
+        }
+        
+        $checkCard.Child = $checkStack
+        [void]$tutPanel.Children.Add($checkCard)
+        
+        $scroll = New-Object System.Windows.Controls.ScrollViewer
+        $scroll.VerticalScrollBarVisibility = "Auto"
+        $scroll.Content = $tutPanel
+        [void]$global:ToolsWrap.Children.Add($scroll)
+        return
+    }
+    
     if ($cat -eq "Commands") {
         foreach ($cmd in $CommandData) {
             $btn = New-CommandButton -Command $cmd
@@ -5804,6 +5202,7 @@ function Show-Category {
         }
         return
     }
+    
     if ($cat -eq "Cmd Commands") {
         foreach ($cmd in $CmdCommandData) {
             $btn = New-CmdCommandButton -CmdCommand $cmd
@@ -5811,6 +5210,7 @@ function Show-Category {
         }
         return
     }
+    
     $catTools = @($ToolData | Where-Object { $_.Category -eq $cat })
     foreach ($tool in $catTools) {
         $btn = New-ToolButton -Tool $tool
@@ -5970,7 +5370,7 @@ Show-Overview
 Write-Log "SS Tools Hub v22.0 ready - ALL SCANNERS MERGED"
 Write-Log "Install location: $global:installDir"
 Write-Log "Total tools: $($ToolData.Count) | Total scripts: $($ScriptData.Count)"
-Write-Log "FIXES: All scanners now work locally (no 404 errors), hover fixed"
+Write-Log "FIXES: All scanners now work locally (no 404 errors), hover fixed, Tutorial added"
 Set-Status "Ready" "✦ All scanners merged! Doomsday, Ghost, Cyemer, Velaris, Heated, DQRKIS" "IDLE"
 
 if ($global:window) {
