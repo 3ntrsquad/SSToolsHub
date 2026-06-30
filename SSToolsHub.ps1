@@ -73,9 +73,8 @@ function Expand-ZipSafe {
 }
 
 # ==============================================================================
-# SCANNER FUNCTIONS
+# SCANNER FUNCTIONS (Doomsday, Ghost, Cyemer, Velaris, Heated, HackedClients, DQRKIS, JournalTrace)
 # ==============================================================================
-
 function Run-DoomsdayFinder {
     Write-Log "Starting Doomsday Finder v3..."
     Set-Status "Running" "Doomsday Finder v3 - Scanning..." "BUSY"
@@ -4071,7 +4070,7 @@ $ScriptData = @(
 )
 
 # ==============================================================================
-# TUTORIAL DATA - INTERACTIVE STEPS
+# TUTORIAL DATA - INTERACTIVE STEPS (USB removed)
 # ==============================================================================
 $TutorialActions = @(
     @{ Step = 1; Description = "Open Recent Files (shell:recent)"; Type = "Command"; Name = "Recent Files" },
@@ -4089,8 +4088,7 @@ $TutorialActions = @(
     @{ Step = 13; Description = "Run TeslaPro Prestige Finder"; Type = "Script"; Name = "TeslaPro Prestige Finder" },
     @{ Step = 14; Description = "Run TeslaPro Injector Detector"; Type = "Script"; Name = "TeslaPro Injector Detector" },
     @{ Step = 15; Description = "Run Journal Trace Analyzer"; Type = "Script"; Name = "Journal Trace Analyzer" },
-    @{ Step = 16; Description = "Run USB Events Viewer"; Type = "Script"; Name = "USB Events Viewer" },
-    @{ Step = 17; Description = "Check the Activity Log below for results"; Type = "Info" }
+    @{ Step = 16; Description = "Check the Activity Log below for results"; Type = "Info" }
 )
 
 $TutorialChecklist = @(
@@ -4109,7 +4107,6 @@ $TutorialChecklist = @(
     "☑️ Prestige Finder",
     "☑️ Injector Detector",
     "☑️ Journal Trace",
-    "☑️ USB Events Viewer",
     "☑️ Review Log"
 )
 
@@ -5072,12 +5069,10 @@ function Show-Category {
         }
     }
     
-    # ==============================================================================
-    # TUT CATEGORY - INTERACTIVE STEPS
-    # ==============================================================================
     if ($cat -eq "Tut") {
         $tutPanel = New-Object System.Windows.Controls.StackPanel
         $tutPanel.Margin = "10"
+        $tutPanel.MaxWidth = 900
         
         $card = New-Object System.Windows.Controls.Border
         $card.Background = "#141420"
@@ -5190,7 +5185,9 @@ function Show-Category {
         
         $scroll = New-Object System.Windows.Controls.ScrollViewer
         $scroll.VerticalScrollBarVisibility = "Auto"
+        $scroll.HorizontalScrollBarVisibility = "Disabled"
         $scroll.Content = $tutPanel
+        $scroll.Height = 550
         [void]$global:ToolsWrap.Children.Add($scroll)
         return
     }
@@ -5370,7 +5367,7 @@ Show-Overview
 Write-Log "SS Tools Hub v22.0 ready - ALL SCANNERS MERGED"
 Write-Log "Install location: $global:installDir"
 Write-Log "Total tools: $($ToolData.Count) | Total scripts: $($ScriptData.Count)"
-Write-Log "FIXES: All scanners now work locally (no 404 errors), hover fixed, Tutorial added"
+Write-Log "FIXES: All scanners now work locally (no 404 errors), hover fixed, Tutorial added, USB removed"
 Set-Status "Ready" "✦ All scanners merged! Doomsday, Ghost, Cyemer, Velaris, Heated, DQRKIS" "IDLE"
 
 if ($global:window) {
