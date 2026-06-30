@@ -4778,7 +4778,7 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="Velaris Scanner"; Author="_iaec"; URL="LOCAL"; Description="Velaris forensic scanner" },
     [PSCustomObject]@{ Name="Heated Mod Analyzer"; Author="Heated"; URL="LOCAL"; Description="Advanced mod analyzer with deep scan" },
     [PSCustomObject]@{ Name="Hacked Clients Detector"; Author="Community"; URL="LOCAL"; Description="Detect hacked Minecraft clients" },
-    [PSCustomObject]@{ Name="DQRKIS Client Detector"; Author="cheesecatlol"; URL="LOCAL"; Description="DQRKIS client detection tool (Fixed)" },
+    [PSCustomObject]@{ Name="DQRKIS Client Detector"; Author="cheesecatlol"; URL="https://raw.githubusercontent.com/cheesecatlol/DQRKIS-FUCKER/refs/heads/main/DqrkisFucker.ps1"; Description="DQRKIS client detection tool" },
     
     [PSCustomObject]@{ Name="Macro Detector"; Author="Nickk196"; URL="https://raw.githubusercontent.com/Nickk196/MacroDetector/main/MacroDetector.ps1"; Description="Detect macro software and scripts" }
 )
