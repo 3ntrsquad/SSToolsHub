@@ -301,7 +301,7 @@ $creditsCard.Controls.Add((New-GlassLabel -text "👤 MY INFORMATION" -x 20 -y 8
 $credits = @(
     @{ Icon = "💬"; Label = "Discord"; Value = "@unseentracking"; Color = $colors.discord },
     @{ Icon = "⛏️"; Label = "Minecraft"; Value = "3ntrsquad"; Color = $colors.minecraft },
-    @{ Icon = "🎯"; Label = "Bio"; Value = "SSER in OrbitalFFA"; Color = $colors.gold }
+    @{ Icon = "🎯"; Label = "Bio"; Value = "SR SSER in OrbitalFFA"; Color = $colors.gold }
 )
 $yOff2 = 42
 foreach ($item in $credits) {
