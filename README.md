@@ -8,4 +8,4 @@ SSToolsHub — 100+ SS tools in one PowerShell hub to catch minecraft cheaters !
 All the tools and the tools belong to their respective authors.
 This is just a hub — gathering them in one place for faster access.
  
-irm https://raw.githubusercontent.com/3ntrsquad/SSToolsHub/refs/heads/main/SSToolHublauncher.ps1 | iex"
+irm https://raw.githubusercontent.com/3ntrsquad/SSToolsHub/refs/heads/main/SSToolHublauncher.ps1 | iex
