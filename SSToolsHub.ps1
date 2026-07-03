@@ -4051,7 +4051,7 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="TeslaPro Macro Finder"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/TeslaProMacroFinder/main/TeslaProMacroFinder_V3.ps1"; Description="Macro finder tool" },
     [PSCustomObject]@{ Name="TeslaPro Doomsday Detector"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/DoomsdayDetector/main/DoomsdayClientDetectorV3.ps1"; Description="Doomsday detector" },
     [PSCustomObject]@{ Name="TeslaPro VPN Finder"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/VPNChecker/main/VPNFinder.ps1"; Description="VPN finder" },
-    [PSCustomObject]@{ Name="TeslaPro Mod Analyzer"; Author="xkzuto96"; URL="https://raw.githubusercontent.com/xkzuto96/xkzutos-mod-analyzer/main/XkzutosModAnalyzer.ps1"; Description="Mod analyzer" },
+    [PSCustomObject]@{ Name="Yarp's Mod Analyzer"; Author="yarp"; URL="https://raw.githubusercontent.com/YarpLetapStan/PowershellScripts/refs/heads/main/YarpsModAnalyzer6.0.ps1"; Description="Mod analyzer" },
     [PSCustomObject]@{ Name="TeslaPro Injector Detector"; Author="Sellgui"; URL="https://raw.githubusercontent.com/Sellgui/Injectdetect/refs/heads/main/Injector%20Scanner.ps1"; Description="Injector detector" },
     [PSCustomObject]@{ Name="TeslaPro Prime Macro Detector"; Author="Sellgui"; URL="https://raw.githubusercontent.com/Sellgui/Javamacrodetector/refs/heads/main/Macro%20Detector.ps1"; Description="Prime macro detector" },
     [PSCustomObject]@{ Name="TeslaPro Security Manager"; Author="TeslaPro"; URL="https://pastebin.com/raw/ChxAuDpF"; Description="Security manager" },
