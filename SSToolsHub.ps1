@@ -4046,8 +4046,8 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="Prefetch Integrity Analyzer"; Author="Bacanoicua/RedLotus"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/PrefetchAnalyzer.ps1"; Description="Prefetch integrity analysis" },
     [PSCustomObject]@{ Name="RedLotus Script Runner"; Author="RedLotus"; URL="https://raw.githubusercontent.com/RedLotusForensics/tool/main/ScriptRunner.ps1"; Description="Run RedLotus scripts" },
     [PSCustomObject]@{ Name="RedLotus Collector"; Author="RedLotus"; URL="https://raw.githubusercontent.com/RedLotusForensics/tool/main/Collector.ps1"; Description="RedLotus forensic collector" },
-    [PSCustomObject]@{ Name="System Cleanup"; Author="3ntr"; URL="https://raw.githubusercontent.com/3ntr/SS-Tools/main/SystemCleanup.ps1"; Description="Clean temp files, prefetch, recycle bin" },
-    [PSCustomObject]@{ Name="Recent Files Finder"; Author="3ntr"; URL="https://raw.githubusercontent.com/3ntr/SS-Tools/main/RecentFilesFinder.ps1"; Description="Find recently accessed files" },
+    [PSCustomObject]@{ Name="Yumniko Mod Analyzer"; Author="Yumniko"; URL="https://raw.githubusercontent.com/veridondevvv/YumikoModAnalyzer/refs/heads/main/YumikoModAnalyzer.ps1"; Description="Yumnikomodanalzyr" },
+    [PSCustomObject]@{ Name="read-journal"; Author="wazz1"; URL="https://raw.githubusercontent.com/waaz1/read-journal/refs/heads/main/read-journal.ps1"; Description="read-journal" },
     [PSCustomObject]@{ Name="TeslaPro Macro Finder"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/TeslaProMacroFinder/main/TeslaProMacroFinder_V3.ps1"; Description="Macro finder tool" },
     [PSCustomObject]@{ Name="TeslaPro Doomsday Detector"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/DoomsdayDetector/main/DoomsdayClientDetectorV3.ps1"; Description="Doomsday detector" },
     [PSCustomObject]@{ Name="TeslaPro VPN Finder"; Author="TeslaPro"; URL="https://raw.githubusercontent.com/TeslaPros/VPNChecker/main/VPNFinder.ps1"; Description="VPN finder" },
@@ -4074,7 +4074,7 @@ $ScriptData = @(
 # ==============================================================================
 $TutorialActions = @(
     @{ Step = 1; Description = "Open Recent Files (shell:recent)"; Type = "Command"; Name = "Recent Files" },
-    @{ Step = 2; Description = "Run System Cleanup (temp, prefetch, recycle bin)"; Type = "Script"; Name = "System Cleanup" },
+    @{ Step = 2; Description = "Run Yarp's Mod Analyzer"; Type = "Script"; Name = "Yarp's Mod Analyzer" },
     @{ Step = 3; Description = "Open Prefetch Folder (C:\Windows\Prefetch)"; Type = "Command"; Name = "Prefetch Folder" },
     @{ Step = 4; Description = "Run Meow Mod Analyzer"; Type = "Script"; Name = "Meow Mod Analyzer" },
     @{ Step = 5; Description = "Run Habibi Mod Analyzer"; Type = "Script"; Name = "Habibi Mod Analyzer" },
