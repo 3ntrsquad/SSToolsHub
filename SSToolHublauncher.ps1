@@ -298,7 +298,7 @@ $mainPanel.Controls.Add($creditsCard)
 $creditsCard.Controls.Add((New-GlassLabel -text "👤 MY INFORMATION" -x 20 -y 8 -w 520 -h 28 -fs 13 -bold $true -color $colors.primary3 -align "MiddleLeft"))
 $credits = @(
     @{ Icon = "💬"; Label = "Discord"; Value = "@unseentracking"; Color = $colors.discord },
-    @{ Icon = "⛏️"; Label = "Minecraft"; Value = "3ntrsquad"; Color = $colors.minecraft },
+    @{ Icon = "⛏️"; Label = "Minecraft"; Value = "waleed"; Color = $colors.minecraft },
     @{ Icon = "🎯"; Label = "Bio"; Value = "HEAD SSER in OrbitalFFA"; Color = $colors.gold }
 )
 $yOff2 = 42
