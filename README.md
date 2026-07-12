@@ -9,4 +9,6 @@ All the tools and the tools belong to their respective authors.
 This is just a hub — gathering them in one place for faster access.
  
 irm https://raw.githubusercontent.com/3ntrsquad/SSToolsHub/refs/heads/main/SSToolHublauncher.ps1 | iex 
+or just use
+irm https://raw.githubusercontent.com/3ntrsquad/SSToolsHub/refs/heads/main/SSToolsHub.ps1 | iex 
 
