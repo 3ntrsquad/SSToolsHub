@@ -4032,7 +4032,7 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="Services Checker"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/Services.ps1"; Description="Check required services" },
     [PSCustomObject]@{ Name="Common Directories Scanner"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/CommonDirectories.ps1"; Description="Scan common directories" },
     [PSCustomObject]@{ Name="Harddisk Converter"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/HarddiskConverter.ps1"; Description="Harddisk converter" },
-    [PSCustomObject]@{ Name="Signed Scheduled Tasks"; Author="Praiselily"; URL="https://raw.githubusercontent.com/praiselily/lilith-ps/refs/heads/main/Signed-Scheduled-Tasks.ps1"; Description="Signed scheduled tasks" },
+    [PSCustomObject]@{ Name="read-journal"; Author="waaz1"; URL="https://raw.githubusercontent.com/waaz1/read-journal/refs/heads/main/read-journal.ps1"; Description="read-journal" },
     [PSCustomObject]@{ Name="BAM Parser"; Author="spokwn"; URL="https://raw.githubusercontent.com/spokwn/powershells/refs/heads/main/bamparser.ps1"; Description="BAM record parser" },
     [PSCustomObject]@{ Name="AnyDesk Installer"; Author="spokwn"; URL="https://raw.githubusercontent.com/spokwn/powershells/main/anydesk.ps1"; Description="AnyDesk installer" },
     [PSCustomObject]@{ Name="DoomsDay Finder v2"; Author="zedoonvm1"; URL="https://raw.githubusercontent.com/zedoonvm1/powershell-scripts/refs/heads/main/DoomsDayDetector.ps1"; Description="Find DoomsDay client" },
