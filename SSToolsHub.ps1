@@ -4040,7 +4040,7 @@ $ScriptData = @(
     [PSCustomObject]@{ Name="Habibi Mod Analyzer"; Author="HadronCollision"; URL="https://raw.githubusercontent.com/HadronCollision/PowershellScripts/refs/heads/main/HabibiModAnalyzer.ps1"; Description="Habibi mod detection" },
     [PSCustomObject]@{ Name="BAM Robado Checker"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/BamRobadoIlleUco.ps1"; Description="Check stolen BAM records" },
     [PSCustomObject]@{ Name="Recycle Bin Checker"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/RecycleBinChecker.ps1"; Description="Recycle bin analyzer" },
-    [PSCustomObject]@{ Name="Service Checker"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/ServiceChecker.ps1"; Description="Critical service checker" },
+    [PSCustomObject]@{ Name="PrismScreenShareAnalyze"; Author="JustWolfeyy"; URL="https://raw.githubusercontent.com/JustWolfeyy/PrismScreenShareAnalyzer/refs/heads/main/PrismSSAnalyzer.ps1"; Description="PrismSSAnalyzer" },
     [PSCustomObject]@{ Name="USB Events Viewer"; Author="IlleUco"; URL="https://raw.githubusercontent.com/IlleUco/ScreenShare/main/USBEvents.ps1"; Description="USB history viewer" },
     [PSCustomObject]@{ Name="RedLotus BAM"; Author="IlleUco"; URL="https://raw.githubusercontent.com/PureIntent/ScreenShare/main/RedLotusBam.ps1"; Description="RedLotus BAM inspection" },
     [PSCustomObject]@{ Name="Javaw-Scanner"; Author="DrakFlxme"; URL="https://raw.githubusercontent.com/DrakFlxme/Javaw-Scanner.ps1/refs/heads/main/Javaw-Scanner.ps1"; Description="Javaw-Scanner" },
